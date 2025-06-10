@@ -16,6 +16,13 @@ boat_points = {
     "rudder_tip": [0, -(3.0 / 5.0) * boat_length]
 };
 
+arrow_points = {
+    "tip": [0, 0.6*boat_length],
+    "tail": [0, 0],
+    "left": [-boat_width*0.5, -0.4*boat_length],
+    "right": [boat_width*0.5, -0.4*boat_length]
+}
+
 
 class Boat{
     constructor(x, y, bearing, sail_angle, rudder_angle, rudder_area, keel_area, mass) {
@@ -181,10 +188,10 @@ class Environment{
             points.rudder_tip = rudder;
 
             // rotate whole boat to bearing
-            for(var key of Object.keys(points)){
+            for(let key of Object.keys(points)){
                 let point = points[key];
                 //rotate the given point to align with bearing
-                point = rotate(point, boat.bearing);
+                point = rotate(point, boat.bearing-180);
 
                 // add position coordinates to move boat to correct position
                 point = [point[0]+boat.x*scale, point[1]+boat.y*scale];
@@ -220,6 +227,32 @@ class Environment{
             ctx.lineTo(points.clew[0], points.clew[1]);
             ctx.closePath();
             ctx.stroke();
+
+            // wind indicator
+            points = structuredClone(arrow_points);
+            for(let key of Object.keys(points)){
+                //rotate the given point to align with wind direction and align with top left corner
+                points[key] = rotate(points[key], this.wind_direction-180);
+                points[key] = [points[key][0] + boat_length, points[key][1]+boat_length];
+            }
+
+            // draw direction indicator
+            ctx.strokeStyle = "#000000";
+            ctx.fillStyle = "#000000";
+            ctx.moveTo(points.tail[0], points.tail[1]);
+            ctx.beginPath();
+            ctx.lineTo(points.left[0], points.left[1]);
+            ctx.lineTo(points.tip[0], points.tip[1]);
+            ctx.lineTo(points.right[0], points.right[1]);
+            ctx.lineTo(points.tail[0], points.tail[1]);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // draw speed readout
+            ctx.font = "50px Courier New";
+            ctx.fillText(`${this.wind_speed}m/s`, 0.2*boat_length, 2.3*boat_length);
+
 
             // calculate forces on boat
             boat.update_acceleration(this.wind_direction, this.wind_speed);
@@ -265,7 +298,7 @@ class Canvas{
     }
 }
 
-// rotate a point x around the origin by b radians
+// rotate a point x around the origin by b degrees
 function rotate(x, b){
     return [(x[0]*Math.cos(b*Math.PI/180) - x[1]*Math.sin(b*Math.PI/180)),
         (x[1]*Math.cos(b*Math.PI/180) + x[0]*Math.sin(b*Math.PI/180))];
