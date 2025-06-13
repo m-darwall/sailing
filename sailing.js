@@ -239,19 +239,22 @@ class Environment{
             // draw direction indicator
             ctx.strokeStyle = "#000000";
             ctx.fillStyle = "#000000";
-            ctx.moveTo(points.tail[0], points.tail[1]);
-            ctx.beginPath();
-            ctx.lineTo(points.left[0], points.left[1]);
-            ctx.lineTo(points.tip[0], points.tip[1]);
-            ctx.lineTo(points.right[0], points.right[1]);
-            ctx.lineTo(points.tail[0], points.tail[1]);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            // draw speed readout
-            ctx.font = "50px Courier New";
-            ctx.fillText(`${this.wind_speed}m/s`, 0.2*boat_length, 2.3*boat_length);
+            ctx.font = "25px Courier New";
+            let sog = Math.sqrt(Math.pow(boat.dx, 2) + Math.pow(boat.dy, 2)).toFixed(3);
+            let cog = (((Math.atan(boat.dx/boat.dy)*180/Math.PI)%360)+360)%360;
+            if(isNaN(cog)){
+                cog = 90;
+                if(boat.dx === 0){
+                    cog = "N/A";
+                }
+                if(boat.dx < 0){
+                    cog = 270;
+                }
+            }else{
+                cog = cog.toFixed(1);
+            }
+            let stats = `Boat Speed: ${sog}m/s  Bearing: ${boat.bearing.toPrecision(3)}°  COG: ${cog}°`;
+            ctx.fillText(stats, 0, this.canvas.height - 25);
 
 
             // calculate forces on boat
