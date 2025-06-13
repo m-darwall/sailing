@@ -194,7 +194,7 @@ class Environment{
                 point = rotate(point, boat.bearing-180);
 
                 // add position coordinates to move boat to correct position
-                point = [point[0]+boat.x*scale, point[1]+boat.y*scale];
+                point = [point[0]+boat.x*scale, point[1]+(this.canvas.height - boat.y)*scale];
 
                 points[key] = point;
 
