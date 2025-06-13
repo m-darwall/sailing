@@ -260,6 +260,31 @@ class Environment{
             // calculate forces on boat
             boat.update_acceleration(this.wind_direction, this.wind_speed);
         }
+
+        // wind indicator
+        let points = structuredClone(arrow_points);
+        for(let key of Object.keys(points)){
+            //rotate the given point to align with wind direction and align with top left corner
+            points[key] = rotate(points[key], this.wind_direction-180);
+            points[key] = [points[key][0] + boat_length, points[key][1]+boat_length];
+        }
+
+        // draw direction indicator
+        ctx.strokeStyle = "#000000";
+        ctx.fillStyle = "#000000";
+        ctx.moveTo(points.tail[0], points.tail[1]);
+        ctx.beginPath();
+        ctx.lineTo(points.left[0], points.left[1]);
+        ctx.lineTo(points.tip[0], points.tip[1]);
+        ctx.lineTo(points.right[0], points.right[1]);
+        ctx.lineTo(points.tail[0], points.tail[1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // draw speed readout
+        ctx.font = "50px Courier New";
+        ctx.fillText(`${this.wind_speed}m/s`, 0.2*boat_length, 2.3*boat_length);
         // continue animating unless told otherwise
         if(this.animation_toggle){
             window.requestAnimationFrame(this.draw.bind(this));
