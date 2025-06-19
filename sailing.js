@@ -186,15 +186,14 @@ class Boat{
         let delta_v_perpendicular = result_perpendicular - v_perpendicular;
 
         // multiply delta v by mass of water per second to get force of keel on water
-        let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * (this.keel_area + Math.cos(this.rudder_angle)*this.rudder_area);
+        let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * (this.keel_area + Math.cos(toRadians(this.rudder_angle))*this.rudder_area);
         // calculate drag along the keel
-        let force_parallel = Math.sign(v_parallel)*0.5*water_density*v_parallel*v_parallel*0.05*(0.25 + Math.sin(this.rudder_angle)*this.rudder_area);
+        let force_parallel = Math.sign(v_parallel)*0.5*water_density*v_parallel*v_parallel*0.05*(0.25 + Math.abs(Math.sin(toRadians(this.rudder_angle)))*this.rudder_area);
 
         // calculate resultant force on keel
         // invert force to get force of water on keel (equal and opposite reaction)
         let f_x = -force_perpendicular*Math.sin(toRadians(inverse_keel_bearing+90)) + force_parallel*Math.cos(toRadians(inverse_keel_bearing+90));
         let f_y = -force_perpendicular*Math.cos(toRadians(inverse_keel_bearing+90)) + force_parallel*Math.sin(toRadians(inverse_keel_bearing+90));
-
 
         return [f_x, f_y];
     }
