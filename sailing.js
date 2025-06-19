@@ -146,8 +146,7 @@ class Boat{
         // split into components parallel and perpendicular to the sail
         let v_parallel = apparent_wind_speed*Math.cos(toRadians(relative_angle));
         let v_perpendicular = apparent_wind_speed*Math.sin(toRadians(relative_angle));
-        // parallel and perpendicular air velocities having interacted with sail
-        let result_parallel = apparent_wind_speed*Math.sign(v_parallel);
+        // assume perpendicular wind is stopped by sail
         let result_perpendicular = 0;
 
         // change in perpendicular velocity
@@ -186,8 +185,7 @@ class Boat{
         // components of flow parallel and perpendicular to keel
         let v_parallel = apparent_flow_speed*Math.cos(toRadians(relative_angle));
         let v_perpendicular = apparent_flow_speed*Math.sin(toRadians(relative_angle));
-        // water flow having interacted with keel
-        let result_parallel = apparent_flow_speed*Math.sign(v_parallel);
+        // assume perpendicular flow is stopped by the keel
         let result_perpendicular = 0;
 
         // change in flow perpendicular to keel
