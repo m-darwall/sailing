@@ -65,12 +65,12 @@ class Boat{
     }
 
     leftHandler(){
-        if(this.rudder_angle > -90 + this.rudder_step){
+        if(this.rudder_angle < 90 - this.rudder_step){
             this.rudder_angle += this.rudder_step;
         }
     }
     rightHandler(){
-        if(this.rudder_angle < 90 - this.rudder_step){
+        if(this.rudder_angle > -90 + this.rudder_step){
             this.rudder_angle -= this.rudder_step;
         }
     }
