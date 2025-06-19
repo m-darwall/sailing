@@ -242,6 +242,14 @@ class Environment{
         window.cancelAnimationFrame(this.draw);
     }
 
+    toggle(){
+        if(this.animation_toggle){
+            this.stop_environment();
+        }else{
+            this.start_environment();
+        }
+    }
+
     add_boat(boat){
         this.boats.push(boat);
     }
