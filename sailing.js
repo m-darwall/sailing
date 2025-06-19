@@ -286,7 +286,7 @@ class Environment{
             let boat = this.boats[n];
             boat.update_position_and_velocity(this.delta_time);
             boat.x = boat.x % (this.canvas.width/ppm - boat.loa*0.5);
-            boat.y = boat.x % (this.canvas.height/ppm - boat.loa*0.5);
+            boat.y = boat.y % (this.canvas.height/ppm - boat.loa*0.5);
 
             // points on the boat when pointing in default direction
             let points = structuredClone(boat.boat_points);
