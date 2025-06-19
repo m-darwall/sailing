@@ -1,86 +1,221 @@
-boat_width = 30; // in pixels
-boat_length = 60; // in pixels
+arrow_width = 30; // in pixels
+arrow_length = 60; // in pixels
 boat_colour = "#ffffff"
 gunwale_colour  = "#000000"
 tiller_colour = "#000000"
 sail_colour = "#0000ff"
-scale = 1;
-boat_points = {
-    "bow": [0, boat_length / 2.0],
-    "port_stern": [-boat_width * 0.5, -boat_length / 2.0],
-    "starboard_stern": [boat_width * 0.5, -boat_length / 2.0],
-    "mast": [0, boat_length * (1.5 / 3.0) / 2.0],
-    "clew": [0, -boat_length / 2.0],
-    "stern": [0, -boat_length / 2.0],
-    "tiller_tip": [0, -(1.5 / 5.0) * boat_length],
-    "rudder_tip": [0, -(3.0 / 5.0) * boat_length]
-};
+air_density = 1;
+water_density = 1000;
+ppm = 9; // pixels per meter
+drag_coefficient_bow = 0.04;
+drag_coefficient_beam = 2;
+
 
 arrow_points = {
-    "tip": [0, 0.6*boat_length],
+    "tip": [0, 0.6*arrow_length],
     "tail": [0, 0],
-    "left": [-boat_width*0.5, -0.4*boat_length],
-    "right": [boat_width*0.5, -0.4*boat_length]
+    "left": [-arrow_width*0.5, -0.4*arrow_length],
+    "right": [arrow_width*0.5, -0.4*arrow_length]
 }
 
 
 class Boat{
-    constructor(x, y, bearing, sail_angle, rudder_angle, rudder_area, keel_area, mass) {
+    constructor(x, y, beam, loa, bearing, rudder_area, keel_area, sail_area, mass) {
+        this.x = x/ppm;
+        this.y = y/ppm;
+        this.beam = beam;
+        this.loa = loa;
         this.bearing = bearing % 360; // 0 to 360
-        this.sail_angle = sail_angle; // -90 to 90
-        this.rudder_angle = rudder_angle;
+        this.sail_angle = 0; // -90 to 90
+        this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
+        this.rudder_angle = 0;
         this.rudder_area = rudder_area;
         this.keel_area = keel_area;
+        this.sail_area = sail_area;
         this.mass = mass;
-        this.x = x;
-        this.y = y;
         this.dx = 0;
         this.dy = 0;
         this.dx2 = 0;
         this.d2y = 0;
         this.rudder_step = 5;
         this.sail_step = 5;
+        this.debug_text = "";
+        this.apparent_wind_bearing = 0;
         self.addEventListener('keydown', (event) => {
             const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
             const callback = {
                 "KeyA"  : this.leftHandler.bind(this),
                 "KeyD" : this.rightHandler.bind(this),
-                "KeyW"    : this.upHandler.bind(this),
-                "KeyS"  : this.downHandler.bind(this),
+                "KeyI"    : this.inHandler.bind(this),
+                "KeyO"  : this.outHandler.bind(this),
             }[key];
-            console.log(callback);
             callback?.()
         });
+        this.boat_points = {
+            "bow": [0, 0.5*this.loa],
+            "port_stern": [-this.beam * 0.5, 0.5*-this.loa],
+            "starboard_stern": [this.beam * 0.5, -this.loa*0.5],
+            "mast": [0, this.loa * 0.1],
+            "clew": [0, -this.loa*0.286],
+            "stern": [0, -this.loa*0.5],
+            "tiller_tip": [0, -0.4 * this.loa],
+            "rudder_tip": [0, -0.7 * this.loa]
+        };
+
     }
 
     leftHandler(){
-        this.rudder_angle -= this.rudder_step;
-        console.log("left")
+        if(this.rudder_angle > -90 + this.rudder_step){
+            this.rudder_angle += this.rudder_step;
+        }
     }
     rightHandler(){
-        this.rudder_angle += this.rudder_step;
+        if(this.rudder_angle < 90 - this.rudder_step){
+            this.rudder_angle -= this.rudder_step;
+        }
     }
-    upHandler(){
-        this.sail_angle -= this.sail_step;
+    inHandler(){
+        this.main_sheet -= this.sail_step;
+        if(this.main_sheet < 0){
+            this.main_sheet = 0;
+        }
+        if(Math.abs(this.sail_angle) > this.main_sheet){
+            this.sail_angle = Math.sign(this.sail_angle)*this.main_sheet;
+        }
     }
-    downHandler(){
-        this.sail_angle += this.sail_step;
+
+    outHandler(){
+        let max_sail_angle = Math.sign(this.bearing - this.apparent_wind_bearing)*180 - (this.bearing - this.apparent_wind_bearing)
+        if(this.apparent_wind_bearing === this.bearing){
+            max_sail_angle = 90;
+        }
+        if (Math.abs(max_sail_angle) > 90){
+            max_sail_angle = Math.sign(max_sail_angle)*90;
+        }
+        this.main_sheet = Math.min(this.main_sheet + this.sail_step, Math.abs(max_sail_angle));
+        this.sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
     }
 
     update_acceleration(wind_direction, wind_speed){
-        return true;
+        this.apparent_wind_bearing = wind_direction;
+        let wind_force = this.calculate_wind_force(wind_direction, wind_speed);
+        let water_resistance = this.calculate_water_resistance();
+
+        let resultant_x = wind_force[0] + water_resistance[0];
+        let resultant_y = wind_force[1] + water_resistance[1];
+        this.dx2 = resultant_x / this.mass;
+        this.d2y = resultant_y / this.mass;
+        this.debug_text += `dx2: ${this.dx2}\n`;
+        this.debug_text += `d2y: ${this.d2y}\n`;
+        this.debug_text += `acceleration: ${Math.sqrt(Math.pow(this.dx2, 2)+Math.pow(this.d2y, 2))}\n`;
+        this.debug_text += `acc bearing: ${toDegrees(Math.atan2(this.dx2, this.d2y))}\n`;
+        this.debug_text += `resultant force x: ${resultant_x}\n`;
+        this.debug_text += `resultant force y: ${resultant_y}\n`;
+
     }
 
-    update_position(delta_time){
+    update_position_and_velocity(delta_time){
         // use x = ut + 0.5at^2 to find new position
-        this.x += this.dx*delta_time + 0.5*this.dx2*delta_time*delta_time;
-        this.y += this.dy*delta_time + 0.5*this.d2y*delta_time*delta_time;
+        this.x += this.dx*delta_time/1000 + 0.5*this.dx2*Math.pow(delta_time/1000, 2);
+        this.y += this.dy*delta_time/1000 + 0.5*this.d2y*Math.pow(delta_time/1000, 2);
+        // use v = u + at to update velocity
+        this.dx = this.dx + this.dx2*delta_time/1000;
+        this.dy = this.dy + this.d2y*delta_time/1000;
+
+        this.debug_text += `x: ${this.x}\n`;
+        this.debug_text += `y: ${this.y}\n`;
+        this.debug_text += `dx: ${this.dx}\n`;
+        this.debug_text += `dy: ${this.dy}\n`;
+        this.debug_text += `velocity: ${Math.sqrt(Math.pow(this.dx, 2)+Math.pow(this.dy, 2))}\n`;
+        this.debug_text += `velocity bearing: ${toDegrees(Math.atan2(this.dx, this.dy))}\n`;
+
     }
 
+    // calculate the force on the sail exerted by the wind
     calculate_wind_force(wind_bearing, wind_speed){
-        let apparent_dx = wind_speed * Math.sin(Math.PI * 2 * wind_bearing/360) - this.dx;
-        let apparent_dy = wind_speed * Math.cos(Math.PI * 2 * wind_bearing/360) - this.dy;
+        // calculate wind components as experienced by the boat
+        let wind_x = wind_speed * Math.sin(toRadians(wind_bearing))
+        let wind_y = wind_speed * Math.cos(toRadians(wind_bearing))
+        let apparent_dx = wind_x - this.dx;
+        let apparent_dy = wind_y - this.dy;
+        let apparent_wind_speed = Math.sqrt(Math.pow(apparent_dx, 2) + Math.pow(apparent_dy, 2));
+        let apparent_wind_bearing = toDegrees(Math.atan2(apparent_dx, apparent_dy));
+        // angle from north of sail
+        let sail_bearing = ((180 + this.bearing + this.sail_angle)%360 + 360) % 360;
+        // angle between wind and sail
+        let relative_angle = apparent_wind_bearing - sail_bearing;
+        // split into components parallel and perpendicular to the sail
+        let v_parallel = apparent_wind_speed*Math.cos(toRadians(relative_angle));
+        let v_perpendicular = apparent_wind_speed*Math.sin(toRadians(relative_angle));
+        // parallel and perpendicular air velocities having interacted with sail
+        let result_parallel = apparent_wind_speed*Math.sign(v_parallel);
+        let result_perpendicular = 0;
 
+        // change in perpendicular velocity
+        let delta_v_perpendicular = result_perpendicular - v_perpendicular;
+
+        // multiply delta v by mass of air per second to get force of sail on wind
+        let force_perpendicular = delta_v_perpendicular * air_density * apparent_wind_speed * this.sail_area;
+
+        // calculate resultant force on sail
+        // invert force to get force of wind on sail (equal and opposite reaction)
+        let fx = -force_perpendicular*Math.sin(toRadians(sail_bearing+90));
+        let fy = -force_perpendicular*Math.cos(toRadians(sail_bearing+90));
+
+        return [fx, fy];
+    }
+
+    // calculate force on keel exerted by water
+    calculate_water_resistance(){
+        // calculate water flow components
+        let apparent_dx = -this.dx;
+        let apparent_dy = -this.dy;
+        let apparent_flow_speed = Math.sqrt(Math.pow(apparent_dx, 2) + Math.pow(apparent_dy, 2));
+        let apparent_flow_bearing = toDegrees(Math.atan2(apparent_dx, apparent_dy));
+        // angle of keel from north inverted to calculate from front to back of boat
+        let inverse_keel_bearing = ((this.bearing + 180) % 360 + 360) % 360;
+        // angle between flow direction and keel direction
+        let relative_angle = apparent_flow_bearing - inverse_keel_bearing;
+        // components of flow parallel and perpendicular to keel
+        let v_parallel = apparent_flow_speed*Math.cos(toRadians(relative_angle));
+        let v_perpendicular = apparent_flow_speed*Math.sin(toRadians(relative_angle));
+        // water flow having interacted with keel
+        let result_parallel = apparent_flow_speed*Math.sign(v_parallel);
+        let result_perpendicular = 0;
+
+        // change in flow perpendicular to keel
+        let delta_v_perpendicular = result_perpendicular - v_perpendicular;
+
+        // multiply delta v by mass of water per second to get force of keel on water
+        let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * this.keel_area;
+
+        // calculate resultant force on keel
+        // invert force to get force of water on keel (equal and opposite reaction)
+        let f_x = -force_perpendicular*Math.sin(toRadians(inverse_keel_bearing+90));
+        let f_y = -force_perpendicular*Math.cos(toRadians(inverse_keel_bearing+90));
+
+
+        // let apparent_flow_angle = Math.atan2(this.dx, this.dy) - toRadians(this.bearing);
+        // let apparent_flow_rate = Math.sqrt(Math.pow(this.dx, 2) + Math.pow(this.dy, 2));
+        //
+        // let beam_drag = -0.5*drag_coefficient_beam*water_density*(this.keel_area+this.rudder_area*Math.abs(Math.cos(this.rudder_angle)))*Math.pow(Math.sin(apparent_flow_angle)*apparent_flow_rate, 2);
+        // let bow_drag = -0.5*drag_coefficient_bow*water_density*(this.rudder_area*Math.abs(Math.sin(this.rudder_angle)))*Math.pow(Math.cos(apparent_flow_angle)*apparent_flow_rate, 2);
+        // let f_x = Math.cos(toRadians(this.bearing))*beam_drag + Math.sin(toRadians(this.bearing))*bow_drag;
+        // let f_y = Math.sin(toRadians(this.bearing))*beam_drag + Math.cos(toRadians(this.bearing))*bow_drag;
+        //
+        // this.debug_text += `apparent water flow: ${toDegrees(apparent_flow_angle)}\n`;
+        // this.debug_text += `apparent water rate: ${apparent_flow_rate}\n`;
+        // this.debug_text += `beam drag: ${beam_drag}\n`;
+        // this.debug_text += `bow drag: ${bow_drag}\n`;
+        // this.debug_text += `water resistance x: ${f_x}\n`;
+        // this.debug_text += `water resistance y: ${f_y}\n`;
+
+
+        return [f_x, f_y];
+    }
+
+    clear_debug(){
+        this.debug_text = ""
     }
 }
 
@@ -115,16 +250,17 @@ class Environment{
         // set canvas proportions to match screen
         this.canvas.canvas.width = document.documentElement.clientWidth;
         this.canvas.canvas.height = document.documentElement.clientHeight;
-        let width_change = this.canvas.width /this.canvas.canvas.width;
-        let height_change = this.canvas.height/this.canvas.canvas.height;
+        let width_change = this.canvas.canvas.width /this.canvas.width;
+        let height_change = this.canvas.canvas.height/this.canvas.height;
+        this.canvas.width = this.canvas.canvas.width;
+        this.canvas.height = this.canvas.canvas.height;
         this.boats.forEach(
-            // adjust bird positions on resize to keep all in frame
+            // adjust boat positions on resize to keep all in frame
             function (node){
                 node.x *= width_change;
                 node.y *= height_change;
             });
-        this.canvas.width = this.canvas.canvas.width;
-        this.canvas.height = this.canvas.canvas.height;
+
     }
 
     // draw current frame
@@ -137,25 +273,15 @@ class Environment{
         this.previous_time = current_time;
 
 
-        //iterate through every bird
+        //iterate through every boat
         for(let n = 0;n<this.boats.length;n++) {
             let boat = this.boats[n];
-            boat.update_position(this.delta_time);
-            if(boat.x < boat_length/2.0){
-                boat.x = 0;
-            }
-            if(boat.y < boat_length/2.0){
-                boat.y = 0;
-            }
-            if(boat.x > this.canvas.width - boat_length/2.0){
-                boat.x = this.canvas.width;
-            }
-            if(boat.y > this.canvas.height - boat_length/2.0){
-                boat.y = this.canvas.height;
-            }
+            boat.update_position_and_velocity(this.delta_time);
+            boat.x = boat.x % (this.canvas.width/ppm - boat.loa*0.5);
+            boat.y = boat.x % (this.canvas.height/ppm - boat.loa*0.5);
 
             // points on the boat when pointing in default direction
-            let points = structuredClone(boat_points);
+            let points = structuredClone(boat.boat_points);
 
             // rotate sail
             let clew = points.clew;
@@ -186,20 +312,17 @@ class Environment{
 
             points.tiller_tip = tiller;
             points.rudder_tip = rudder;
-
-            // rotate whole boat to bearing
+            // rotate whole boat to bearing and move to correct position
             for(let key of Object.keys(points)){
                 let point = points[key];
                 //rotate the given point to align with bearing
                 point = rotate(point, boat.bearing-180);
 
                 // add position coordinates to move boat to correct position
-                point = [point[0]+boat.x*scale, point[1]+(this.canvas.height - boat.y)*scale];
+                point = [(point[0]+boat.x)*ppm, (point[1]+(this.canvas.height/ppm - boat.y))*ppm];
 
                 points[key] = point;
-
             }
-
             // set boat colour
             ctx.strokeStyle = gunwale_colour;
             ctx.fillStyle = boat_colour;
@@ -228,35 +351,23 @@ class Environment{
             ctx.closePath();
             ctx.stroke();
 
-            // wind indicator
-            points = structuredClone(arrow_points);
-            for(let key of Object.keys(points)){
-                //rotate the given point to align with wind direction and align with top left corner
-                points[key] = rotate(points[key], this.wind_direction-180);
-                points[key] = [points[key][0] + boat_length, points[key][1]+boat_length];
-            }
-
-            // draw direction indicator
-            ctx.strokeStyle = "#000000";
+            // boat stats
             ctx.fillStyle = "#000000";
             ctx.font = "25px Courier New";
             let sog = Math.sqrt(Math.pow(boat.dx, 2) + Math.pow(boat.dy, 2)).toFixed(3);
-            let cog = (((Math.atan(boat.dx/boat.dy)*180/Math.PI)%360)+360)%360;
-            if(isNaN(cog)){
-                cog = 90;
-                if(boat.dx === 0){
-                    cog = "N/A";
-                }
-                if(boat.dx < 0){
-                    cog = 270;
-                }
-            }else{
-                cog = cog.toFixed(1);
-            }
-            let stats = `Boat Speed: ${sog}m/s  Bearing: ${boat.bearing.toPrecision(3)}°  COG: ${cog}°`;
+            let cog = (toDegrees(Math.atan2(boat.dx, boat.dy))%360 + 360)%360;
+            let stats = `SOG: ${sog}m/s  Bearing: ${boat.bearing.toPrecision(3)}°  COG: ${cog.toFixed(1)}°`;
             ctx.fillText(stats, 0, this.canvas.height - 25);
 
-
+            // debug text
+            ctx.font = "10px Courier New";
+            let text = boat.debug_text.split("\n");
+            let above = 0
+            for(let line of text.keys()){
+                ctx.fillText(text[line], 0, above + 500);
+                above += 10;
+            }
+            boat.clear_debug();
             // calculate forces on boat
             boat.update_acceleration(this.wind_direction, this.wind_speed);
         }
@@ -266,7 +377,7 @@ class Environment{
         for(let key of Object.keys(points)){
             //rotate the given point to align with wind direction and align with top left corner
             points[key] = rotate(points[key], this.wind_direction-180);
-            points[key] = [points[key][0] + boat_length, points[key][1]+boat_length];
+            points[key] = [points[key][0] + arrow_length, points[key][1]+arrow_length];
         }
 
         // draw direction indicator
@@ -284,7 +395,10 @@ class Environment{
 
         // draw speed readout
         ctx.font = "50px Courier New";
-        ctx.fillText(`${this.wind_speed}m/s`, 0.2*boat_length, 2.3*boat_length);
+        ctx.fillText(`${this.wind_speed}m/s`, 0.2*arrow_length, 2.3*arrow_length);
+
+
+
         // continue animating unless told otherwise
         if(this.animation_toggle){
             window.requestAnimationFrame(this.draw.bind(this));
@@ -300,8 +414,10 @@ class Canvas{
     constructor(id){
         this.canvas = document.getElementById(id);
         this.#context = this.canvas.getContext("2d");
-        this.#height = this.canvas.height;
-        this.#width = this.canvas.width;
+        this.canvas.width = document.documentElement.clientWidth;
+        this.canvas.height = document.documentElement.clientHeight;
+        this.height = this.canvas.height;
+        this.width = this.canvas.width;
     }
 
 
@@ -328,6 +444,15 @@ class Canvas{
 
 // rotate a point x around the origin by b degrees
 function rotate(x, b){
-    return [(x[0]*Math.cos(b*Math.PI/180) - x[1]*Math.sin(b*Math.PI/180)),
-        (x[1]*Math.cos(b*Math.PI/180) + x[0]*Math.sin(b*Math.PI/180))];
+    return [(x[0]*Math.cos(toRadians(b)) - x[1]*Math.sin(toRadians(b))),
+        (x[1]*Math.cos(toRadians(b)) + x[0]*Math.sin(toRadians(b)))];
+}
+
+function toRadians(degrees){
+    return degrees*Math.PI/180;
+}
+
+
+function toDegrees(radians){
+    return radians*180/Math.PI;
 }

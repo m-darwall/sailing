@@ -6,16 +6,14 @@ In the process of making it I will hopefully also learn a bit more about how sai
 It is very much a work in progress.
 
 ## Implemented Features
-- boat with keyboard controls for tiller and sail
+- keyboard controls for tiller and sail. The A and D keys steer port and starboard, I(n) and O(ut) keys let sail in and out according to wind
 - boat and environment are displayed
 - wind direction/speed indicated
-- boat stats displayed
+- boat speed and course displayed
 
 ## Intended Features
-- somewhat realistic effects of water and wind on the boat based on physics(currently working on this)
+- somewhat realistic effects of water and wind on the boat based on physics(currently working on this, getting there)
 - somewhat realistic steering with the tiller
-- control sail with i(n) and o(ut) keys rather than w(right) and s(left)
-- sail moves out in direction suggested by wind
 - sail fills when wind is acting on it
 - goals appear which award points when user navigates to them (Snake but with a boat)
 - mobile compatibility
