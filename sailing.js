@@ -147,6 +147,7 @@ class Boat{
 
         // multiply delta v by mass of air per second to get force of sail on wind
         let force_perpendicular = delta_v_perpendicular * air_density * apparent_wind_speed * this.sail_area;
+        // calculate drag along the sail
         let force_parallel = Math.sign(v_parallel)*0.5*air_density*v_parallel*v_parallel*0.05;
 
         // calculate resultant force on sail
@@ -185,8 +186,9 @@ class Boat{
         let delta_v_perpendicular = result_perpendicular - v_perpendicular;
 
         // multiply delta v by mass of water per second to get force of keel on water
-        let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * this.keel_area;
-        let force_parallel = Math.sign(v_parallel)*0.5*water_density*v_parallel*v_parallel*0.05;
+        let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * (this.keel_area + Math.cos(this.rudder_angle)*this.rudder_area);
+        // calculate drag along the keel
+        let force_parallel = Math.sign(v_parallel)*0.5*water_density*v_parallel*v_parallel*0.05*(0.25 + Math.sin(this.rudder_angle)*this.rudder_area);
 
         // calculate resultant force on keel
         // invert force to get force of water on keel (equal and opposite reaction)
