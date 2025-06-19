@@ -111,7 +111,6 @@ class Boat{
         this.debug_text += `acc bearing: ${toDegrees(Math.atan2(this.dx2, this.d2y))}\n`;
         this.debug_text += `resultant force x: ${resultant_x}\n`;
         this.debug_text += `resultant force y: ${resultant_y}\n`;
-
     }
 
     update_position_and_velocity(delta_time){
@@ -121,14 +120,6 @@ class Boat{
         // use v = u + at to update velocity
         this.dx = this.dx + this.dx2*delta_time/1000;
         this.dy = this.dy + this.d2y*delta_time/1000;
-
-        this.debug_text += `x: ${this.x}\n`;
-        this.debug_text += `y: ${this.y}\n`;
-        this.debug_text += `dx: ${this.dx}\n`;
-        this.debug_text += `dy: ${this.dy}\n`;
-        this.debug_text += `velocity: ${Math.sqrt(Math.pow(this.dx, 2)+Math.pow(this.dy, 2))}\n`;
-        this.debug_text += `velocity bearing: ${toDegrees(Math.atan2(this.dx, this.dy))}\n`;
-
     }
 
     // calculate the force on the sail exerted by the wind
@@ -156,11 +147,18 @@ class Boat{
 
         // multiply delta v by mass of air per second to get force of sail on wind
         let force_perpendicular = delta_v_perpendicular * air_density * apparent_wind_speed * this.sail_area;
+        let force_parallel = Math.sign(v_parallel)*0.5*air_density*v_parallel*v_parallel*0.05;
 
         // calculate resultant force on sail
         // invert force to get force of wind on sail (equal and opposite reaction)
-        let fx = -force_perpendicular*Math.sin(toRadians(sail_bearing+90));
-        let fy = -force_perpendicular*Math.cos(toRadians(sail_bearing+90));
+        let fx = -force_perpendicular*Math.sin(toRadians(sail_bearing+90)) + force_parallel*Math.cos(toRadians(sail_bearing+90));
+        let fy = -force_perpendicular*Math.cos(toRadians(sail_bearing+90)) + force_parallel*Math.sin(toRadians(sail_bearing+90));
+
+        this.debug_text += `wind fx: ${fx}\n`;
+        this.debug_text += `wind fy: ${fy}\n`;
+        this.debug_text += `force perpendicular: ${force_perpendicular}\n`;
+        this.debug_text += `force parallel: ${force_parallel}\n`;
+
 
         return [fx, fy];
     }
@@ -188,27 +186,12 @@ class Boat{
 
         // multiply delta v by mass of water per second to get force of keel on water
         let force_perpendicular = delta_v_perpendicular * water_density * apparent_flow_speed * this.keel_area;
+        let force_parallel = Math.sign(v_parallel)*0.5*water_density*v_parallel*v_parallel*0.05;
 
         // calculate resultant force on keel
         // invert force to get force of water on keel (equal and opposite reaction)
-        let f_x = -force_perpendicular*Math.sin(toRadians(inverse_keel_bearing+90));
-        let f_y = -force_perpendicular*Math.cos(toRadians(inverse_keel_bearing+90));
-
-
-        // let apparent_flow_angle = Math.atan2(this.dx, this.dy) - toRadians(this.bearing);
-        // let apparent_flow_rate = Math.sqrt(Math.pow(this.dx, 2) + Math.pow(this.dy, 2));
-        //
-        // let beam_drag = -0.5*drag_coefficient_beam*water_density*(this.keel_area+this.rudder_area*Math.abs(Math.cos(this.rudder_angle)))*Math.pow(Math.sin(apparent_flow_angle)*apparent_flow_rate, 2);
-        // let bow_drag = -0.5*drag_coefficient_bow*water_density*(this.rudder_area*Math.abs(Math.sin(this.rudder_angle)))*Math.pow(Math.cos(apparent_flow_angle)*apparent_flow_rate, 2);
-        // let f_x = Math.cos(toRadians(this.bearing))*beam_drag + Math.sin(toRadians(this.bearing))*bow_drag;
-        // let f_y = Math.sin(toRadians(this.bearing))*beam_drag + Math.cos(toRadians(this.bearing))*bow_drag;
-        //
-        // this.debug_text += `apparent water flow: ${toDegrees(apparent_flow_angle)}\n`;
-        // this.debug_text += `apparent water rate: ${apparent_flow_rate}\n`;
-        // this.debug_text += `beam drag: ${beam_drag}\n`;
-        // this.debug_text += `bow drag: ${bow_drag}\n`;
-        // this.debug_text += `water resistance x: ${f_x}\n`;
-        // this.debug_text += `water resistance y: ${f_y}\n`;
+        let f_x = -force_perpendicular*Math.sin(toRadians(inverse_keel_bearing+90)) + force_parallel*Math.cos(toRadians(inverse_keel_bearing+90));
+        let f_y = -force_perpendicular*Math.cos(toRadians(inverse_keel_bearing+90)) + force_parallel*Math.sin(toRadians(inverse_keel_bearing+90));
 
 
         return [f_x, f_y];
