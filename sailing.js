@@ -456,7 +456,7 @@ function toRadians(degrees){
     return degrees*Math.PI/180;
 }
 
-// convert tadians to degrees
+// convert radians to degrees
 function toDegrees(radians){
     return radians*180/Math.PI;
 }
