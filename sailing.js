@@ -123,8 +123,8 @@ class Boat{
     // updates boat position and velocity based on velocity and acceleration
     update_position_and_velocity(delta_time){
         // use x = ut + 0.5at^2 to find new position
-        this.x += this.dx*delta_time/1000 + 0.5*this.dx2*Math.pow(delta_time/1000, 2);
-        this.y += this.dy*delta_time/1000 + 0.5*this.d2y*Math.pow(delta_time/1000, 2);
+        this.x = this.x + this.dx*delta_time/1000 + 0.5*this.dx2*Math.pow(delta_time/1000, 2);
+        this.y = this.y + this.dy*delta_time/1000 + 0.5*this.d2y*Math.pow(delta_time/1000, 2);
         // use v = u + at to update velocity
         this.dx = this.dx + this.dx2*delta_time/1000;
         this.dy = this.dy + this.d2y*delta_time/1000;
