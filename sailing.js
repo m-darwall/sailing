@@ -69,6 +69,14 @@ class Boat{
 
     }
 
+    // updates boat state
+    update(delta_time, wind_direction, wind_speed){
+        this.update_position_and_velocity(delta_time);
+        this.update_rotation(delta_time);
+        this.update_sail();
+        this.update_acceleration(wind_direction, wind_speed);
+    }
+
     // moves rudder clockwise
     leftHandler(){
         if(this.rudder_angle < 90 - this.rudder_step){
@@ -303,9 +311,7 @@ class Environment{
         //iterate through every boat
         for(let n = 0;n<this.boats.length;n++) {
             let boat = this.boats[n];
-            boat.update_position_and_velocity(this.delta_time);
-            boat.update_rotation(this.delta_time);
-            boat.update_sail();
+            boat.update(this.delta_time, this.wind_direction, this.wind_speed);
             boat.x = boat.x % (this.canvas.width/ppm - boat.loa*0.5);
             boat.y = boat.y % (this.canvas.height/ppm - boat.loa*0.5);
 
@@ -397,8 +403,6 @@ class Environment{
                 above += 10;
             }
             boat.clear_debug();
-            // calculate forces on boat
-            boat.update_acceleration(this.wind_direction, this.wind_speed);
         }
 
         // wind indicator
