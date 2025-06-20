@@ -41,6 +41,9 @@ class Boat{
         this.sail_step = 5; // degrees
         this.debug_text = ""; // for logging values and printing them to screen
         this.apparent_wind_bearing = 0; // degrees
+        this.v_rot = 0; // rotational velocity in rad s^-1
+        this.dv_rot = 0; // rotational acceleration in rad s^-2
+        this.moment_of_inertia = this.mass * Math.pow(this.loa/4, 2); // moment of inertia in kg m^2
         // listens for user controls
         self.addEventListener('keydown', (event) => {
             const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
@@ -102,6 +105,7 @@ class Boat{
         this.sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
     }
 
+
     // updates boat acceleration due to environmental factors
     update_acceleration(wind_direction, wind_speed){
         this.apparent_wind_bearing = wind_direction;
@@ -128,6 +132,16 @@ class Boat{
         // use v = u + at to update velocity
         this.dx = this.dx + this.dx2*delta_time/1000;
         this.dy = this.dy + this.d2y*delta_time/1000;
+    }
+
+    // updates boat bearing and rotational velocity based on rotational velocity and rotational acceleration
+    update_rotation(delta_time){
+        // use x = ut + 0.5at^2 to find new rotation
+        this.bearing = ((this.bearing + toDegrees(this.v_rot*delta_time/1000 + 0.5*this.dv_rot*Math.pow(delta_time/1000, 2))) % 360 +360)%360;
+        // use v = u + at to update rotational velocity
+        this.v_rot = this.v_rot + this.dv_rot*delta_time/1000;
+
+        this.debug_text += `rotational velocity: ${this.v_rot}\n`;
     }
 
     // calculate the force on the sail exerted by the wind
@@ -278,6 +292,7 @@ class Environment{
         for(let n = 0;n<this.boats.length;n++) {
             let boat = this.boats[n];
             boat.update_position_and_velocity(this.delta_time);
+            boat.update_rotation(this.delta_time);
             boat.x = boat.x % (this.canvas.width/ppm - boat.loa*0.5);
             boat.y = boat.y % (this.canvas.height/ppm - boat.loa*0.5);
 
