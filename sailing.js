@@ -88,21 +88,33 @@ class Boat{
         if(this.main_sheet < 0){
             this.main_sheet = 0;
         }
-        if(Math.abs(this.sail_angle) > this.main_sheet){
-            this.sail_angle = Math.sign(this.sail_angle)*this.main_sheet;
-        }
+        this.update_sail();
     }
     // lets out mainsheet if possible
     outHandler(){
-        let max_sail_angle = Math.sign(this.bearing - this.apparent_wind_bearing)*180 - (this.bearing - this.apparent_wind_bearing)
+        // this.sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
+        this.main_sheet += this.sail_step;
+        if(this.main_sheet > 90){
+            this.main_sheet = 90;
+        }
+        this.update_sail();
+        if(this.main_sheet > Math.abs(this.sail_angle)){
+            this.main_sheet = Math.abs(this.sail_angle);
+        }
+    }
+
+    update_sail(){
+        let max_sail_angle = Math.sign(this.bearing - this.apparent_wind_bearing)*180 - (this.bearing - this.apparent_wind_bearing);
         if(this.apparent_wind_bearing === this.bearing){
             max_sail_angle = 90;
         }
         if (Math.abs(max_sail_angle) > 90){
             max_sail_angle = Math.sign(max_sail_angle)*90;
         }
-        this.main_sheet = Math.min(this.main_sheet + this.sail_step, Math.abs(max_sail_angle));
-        this.sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
+        if(Math.abs(max_sail_angle) > this.main_sheet){
+            max_sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
+        }
+        this.sail_angle = max_sail_angle;
     }
 
 
@@ -293,6 +305,7 @@ class Environment{
             let boat = this.boats[n];
             boat.update_position_and_velocity(this.delta_time);
             boat.update_rotation(this.delta_time);
+            boat.update_sail();
             boat.x = boat.x % (this.canvas.width/ppm - boat.loa*0.5);
             boat.y = boat.y % (this.canvas.height/ppm - boat.loa*0.5);
 
