@@ -11,9 +11,9 @@ It is very much a work in progress.
 - wind direction/speed indicated
 - boat speed and course displayed
 - somewhat realistic effects of water and wind on the boat based on physics
+- somewhat realistic steering with the tiller
 
 ## Intended Features
-- somewhat realistic steering with the tiller
 - sail fills when wind is acting on it
 - goals appear which award points when user navigates to them (Snake but with a boat)
 - mobile compatibility
