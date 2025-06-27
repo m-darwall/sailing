@@ -1,16 +1,20 @@
-arrow_width = 30; // in pixels
-arrow_length = 60; // in pixels
+// boat visuals
 boat_colour = "#ffffff"
 gunwale_colour  = "#000000"
 tiller_colour = "#000000"
 sail_colour = "#0000ff"
+
+// physical constants
 air_density = 1;
 water_density = 1000;
+
+// display variable
 ppm = 18; // pixels per meter
-drag_coefficient_bow = 0.04;
-drag_coefficient_beam = 2;
 
 
+// wind indicator
+arrow_width = 30; // in pixels
+arrow_length = 60; // in pixels
 arrow_points = {
     "tip": [0, 0.6*arrow_length],
     "tail": [0, 0],
@@ -33,44 +37,39 @@ class Boat{
      * @param {Number}mass mass of the boat in kg
      */
     constructor(x, y, beam, loa, bearing, rudder_area, keel_area, sail_area, mass) {
+        // motion
         this.x = x/ppm; // meters
         this.y = y/ppm; // meters
-        this.beam = beam; // (boat width) in meters
-        this.loa = loa; // length overall
-        this.bearing = (bearing % 360 + 360)%360; // 0 to 360 degrees
-        this.wind_getter = null;
-        this.sail_angle = 0; // -90 to 90 degrees
-        this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
-        this.rudder_angle = 0; // -90 to 90
-        this.rudder_area = rudder_area; // meters squared
-        this.keel_area = keel_area; // meters squared
-        this.keel_drag_coefficient = 0.004;
-        this.keel_edge_area = 0.01;
-        this.sail_area = sail_area; // meters squared
         this.mass = mass; // kilograms
         this.dx = 0; // meters per second
         this.dy = 0; // meters per second
         this.dx2 = 0; // ms^-2
         this.d2y = 0; // ms^-2
-        this.rudder_step = 3; // degrees
-        this.sail_step = 5; // degrees
-        this.sail_drag_coefficient = 0.004;
-        this.sail_edge_area = 0.7;
-        this.debug_text = ""; // for logging values and printing them to screen
+        // rotation
+        this.bearing = (bearing % 360 + 360)%360; // 0 to 360 degrees
         this.v_rot = 0; // rotational velocity in rad s^-1
         this.dv_rot = 0; // rotational acceleration in rad s^-2
         this.moment_of_inertia = 80; // moment of inertia in kg m^2
-        // listens for user controls
-        self.addEventListener('keydown', (event) => {
-            const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
-            const callback = {
-                "KeyA"  : this.leftHandler.bind(this),
-                "KeyD" : this.rightHandler.bind(this),
-                "KeyI"    : this.inHandler.bind(this),
-                "KeyO"  : this.outHandler.bind(this),
-            }[key];
-            callback?.()
-        });
+        // sensors
+        this.wind_getter = null;
+        // sail
+        this.sail_angle = 0; // -90 to 90 degrees
+        this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
+        this.sail_area = sail_area; // meters squared
+        this.sail_step = 5; // degrees
+        this.sail_drag_coefficient = 0.004;
+        this.sail_edge_area = 0.7;
+        // rudder
+        this.rudder_angle = 0; // -90 to 90
+        this.rudder_area = rudder_area; // meters squared
+        this.rudder_step = 3; // degrees
+        // keel
+        this.keel_area = keel_area; // meters squared
+        this.keel_drag_coefficient = 0.004;
+        this.keel_edge_area = 0.01;
+        // boat dimensions
+        this.beam = beam; // (boat width) in meters
+        this.loa = loa; // length overall
         // points for drawing the boat
         this.boat_points = {
             "bow": [0, 0.5*this.loa],
@@ -83,33 +82,46 @@ class Boat{
             "tiller_tip": [0, -0.25 * this.loa],
             "rudder_tip": [0, -0.55 * this.loa]
         };
-
+        // user control listener
+        self.addEventListener('keydown', (event) => {
+            const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
+            const callback = {
+                "KeyA"  : this.leftHandler.bind(this),
+                "KeyD" : this.rightHandler.bind(this),
+                "KeyI"    : this.inHandler.bind(this),
+                "KeyO"  : this.outHandler.bind(this),
+            }[key];
+            callback?.()
+        });
+        // debugging
+        this.debug_text = ""; // for logging values and printing them to screen
     }
 
-    // moves rudder clockwise
     leftHandler(){
+        // rotates rudder clockwise
         if(this.rudder_angle < 50 - this.rudder_step){
             this.rudder_angle += this.rudder_step;
         }
     }
-    // moves rudder anticlockwise
+
     rightHandler(){
+        // rotates rudder anti-clockwise
         if(this.rudder_angle > -50 + this.rudder_step){
             this.rudder_angle -= this.rudder_step;
         }
     }
 
-    // pulls in main sheet
     inHandler(){
+        // pulls in main sheet if possible
         this.main_sheet -= this.sail_step;
         if(this.main_sheet < 0){
             this.main_sheet = 0;
         }
         this.update_sail();
     }
-    // lets out mainsheet if possible
+
     outHandler(){
-        // this.sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
+        // lets out mainsheet if possible
         this.main_sheet += this.sail_step;
         if(this.main_sheet > 90){
             this.main_sheet = 90;
@@ -121,6 +133,7 @@ class Boat{
     }
 
     update_sail(){
+        // updates sail to correct position according to wind and main sheet (soon to have updated realism)
         let wind = this.wind_getter();
         let distance_from_center = this.boat_points.mast[1] + (this.boat_points.mast[1] - this.boat_points.clew[1])*0.7 *Math.cos(toRadians(this.sail_angle + this.bearing));
         let apparent_wind = this.calculate_apparent_wind(wind[0], wind[1], distance_from_center);
@@ -141,27 +154,35 @@ class Boat{
 
     // updates boat state
     update(delta_time){
+        /** updates boat position, rotation and acceleration
+         * @param {Number} delta_time time in milliseconds since last update
+         */
         this.update_position_and_velocity(delta_time);
         this.update_rotation(delta_time);
         this.update_sail();
         this.update_acceleration();
     }
 
-    // updates boat acceleration due to environmental factors
+
     update_acceleration(){
+        // updates boat translational and rotational acceleration due to environmental factors
         let wind_force = this.calculate_wind_force();
         let water_resistance = this.calculate_water_resistance();
 
         let resultant_x = wind_force[0] + water_resistance[0];
         let resultant_y = wind_force[1] + water_resistance[1];
         let resultant_moment = wind_force[2] + water_resistance[2];
+        // F = ma -> a = F/m
         this.dx2 = resultant_x / this.mass;
         this.d2y = resultant_y / this.mass;
         this.dv_rot = resultant_moment / this.moment_of_inertia;
     }
 
-    // updates boat position and velocity based on velocity and acceleration
+
     update_position_and_velocity(delta_time){
+        /** updates boat position and velocity based on current velocity and acceleration
+         * @param {Number} delta_time time in milliseconds since last update
+         */
         // use v = u + at to update velocity
         this.dx = this.dx + this.dx2*delta_time/1000;
         this.dy = this.dy + this.d2y*delta_time/1000;
@@ -170,31 +191,40 @@ class Boat{
         this.y = this.y + this.dy*delta_time/1000 + 0.5*this.d2y*Math.pow(delta_time/1000, 2);
     }
 
-    // updates boat bearing and rotational velocity based on rotational velocity and rotational acceleration
     update_rotation(delta_time){
+        /** updates boat bearing and rotational velocity based on rotational velocity and rotational acceleration
+         * @param {Number} delta_time time in milliseconds since last update
+         */
         // use v = u + at to update rotational velocity
         this.v_rot = this.v_rot + this.dv_rot*delta_time/1000;
         // use x = ut + 0.5at^2 to find new rotation
         this.bearing = ((this.bearing + toDegrees(this.v_rot*delta_time/1000 + 0.5*this.dv_rot*Math.pow(delta_time/1000, 2))) % 360 +360)%360;
     }
 
-    calculate_apparent_wind(distance_from_center){
+    calculate_apparent_wind(point){
+        /** calculates apparent wind for a point on the boat
+         * @param {Number[2]} point the point relative to the center of rotation when bearing is 0
+         * @returns {Number[2]} the x and y components of the apparent wind at the given point
+         */
+        let radius = Math.sqrt(Math.pow(x, 2) + Math.pow(y ,2));
+        point = rotate(point, this.bearing);
+        // velocity from boat rotation
+        let v_from_rotation = this.v_rot * radius;
+        let v_from_rotation_x = v_from_rotation*Math.cos(Math.atan2(point[0], point[1]));
+        let v_from_rotation_y = v_from_rotation*-Math.sin(Math.atan2(point[0], point[1]));
+
         let wind = this.wind_getter();
-        let wind_speed = wind[0];
-        let wind_bearing = wind[1];
-        let wind_x = wind_speed * Math.sin(toRadians(wind_bearing));
-        let wind_y = wind_speed * Math.cos(toRadians(wind_bearing));
-        // velocity perpendicular to wing from boat rotation
-        let v_from_rotation = this.v_rot * distance_from_center;
+
         // apparent velocity of medium in x direction
-        let apparent_x = -this.dx + wind_x + -v_from_rotation*Math.cos(toRadians(this.bearing));
+        let apparent_x = -this.dx + wind[0] + -v_from_rotation_x;
         // apparent velocity of medium in y direction
-        let apparent_y = -this.dy + wind_y + -v_from_rotation*-Math.sin(toRadians(this.bearing));
+        let apparent_y = -this.dy + wind[1] + -v_from_rotation_y;
         return [apparent_x, apparent_y];
     }
 
-    // calculate the force on the sail exerted by the wind and the moment caused by that force
+
     calculate_wind_force(){
+        // calculate the force on the sail exerted by the wind and the moment caused by that force
         let wind = this.wind_getter();
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
@@ -202,8 +232,9 @@ class Boat{
         return this.calculate_lift(air_density, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
     }
 
-    // calculate force on keel exerted by water and moment caused by that force
+
     calculate_water_resistance(){
+        // calculate force on keel exerted by water and moment caused by that force
         let rudder_length = (this.boat_points.stern[1] - this.boat_points.rudder_tip[1]);
         let result_keel = this.calculate_lift(water_density, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient);
         let result_rudder = this.calculate_lift(water_density, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.keel_drag_coefficient);
@@ -289,14 +320,20 @@ class Boat{
         return [resultant_x, resultant_y, resultant_moment];
     }
 
-    // resets debug text
     clear_debug(){
+        // resets debug text
         this.debug_text = "";
     }
 }
 
-// environment for adding boats to. Consists of an area with wind blowing. Deals with displaying itself
+
 class Environment{
+    /**
+     * environment for adding boats to. Consists of an area with wind blowing. Deals with displaying itself
+     * @param wind_direction bearing of the wind
+     * @param wind_speed speed of wind in that direction
+     * @param canvas an HTML canvas to display on
+     */
     constructor(wind_direction, wind_speed, canvas){
         this.wind_direction = wind_direction;
         this.wind_speed = wind_speed;
@@ -306,20 +343,23 @@ class Environment{
         this.delta_time = 0;
         this.animation_toggle = false;
     }
-    // start animating the environment
+
     start_environment(){
+        // start animating the environment
         this.animation_toggle = true;
         this.previous_time = performance.now();
         this.render();
         window.requestAnimationFrame(this.draw.bind(this));
     }
-    // stop animating the environment
+
     stop_environment(){
+        // stop animating the environment
         this.animation_toggle = false;
         window.cancelAnimationFrame(this.draw);
     }
-    // toggle environment animation
+
     toggle(){
+        // toggle environment animation
         if(this.animation_toggle){
             this.stop_environment();
         }else{
@@ -343,8 +383,9 @@ class Environment{
         return [this.wind_speed, this.wind_direction];
     }
 
-    // adjust canvas and contents based on window size
+
     render() {
+        // adjust canvas and contents based on window size
         // set canvas proportions to match screen
         this.canvas.canvas.width = document.documentElement.clientWidth;
         this.canvas.canvas.height = document.documentElement.clientHeight;
@@ -508,8 +549,9 @@ class Environment{
     }
 }
 
-// object used to keep track of animation canvas
+
 class Canvas{
+    // object used to keep track of animation canvas
     #height;
     #width;
     #context;
@@ -554,12 +596,14 @@ function rotate(x, b){
         (x[1]*Math.cos(toRadians(b)) - x[0]*Math.sin(toRadians(b)))];
 }
 
-// convert degrees to radians
+
 function toRadians(degrees){
+    // convert degrees to radians
     return degrees*Math.PI/180;
 }
 
-// convert radians to degrees
+
 function toDegrees(radians){
+    // convert radians to degrees
     return radians*180/Math.PI;
 }
