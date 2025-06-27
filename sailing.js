@@ -20,6 +20,18 @@ arrow_points = {
 
 
 class Boat{
+    /**
+     * Boat
+     * @param {Number}x x position of boat in pixels
+     * @param {Number}y y position of boat in pixels
+     * @param {Number}beam beam(width) of boat in meters
+     * @param {Number}loa length overall of boat
+     * @param {Number}bearing bearing from North in degrees
+     * @param {Number}rudder_area area in meters squared of the side of the boat's rudder
+     * @param {Number}keel_area area in meters squared of the side of the boat's keel
+     * @param {Number}sail_area sail area in meters of the mainsail
+     * @param {Number}mass mass of the boat in kg
+     */
     constructor(x, y, beam, loa, bearing, rudder_area, keel_area, sail_area, mass) {
         this.x = x/ppm; // meters
         this.y = y/ppm; // meters
