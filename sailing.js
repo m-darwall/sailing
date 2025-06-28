@@ -214,16 +214,18 @@ class Boat{
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
         let boom_length = (this.boat_points.clew[1] - this.boat_points.mast[1]);
-        let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
+        let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length/3, this.sail_drag_coefficient);
         let mast = rotate(this.boat_points.mast, this.bearing);
         let moment_round_mast = this.calculate_moment(result_sail[0], result_sail[1], [result_sail[2][0] - mast[0], result_sail[2][1] - mast[1]]);
-        // if sail is being pushed against limit of main sheet, force transfers to the boat
+        // if sail is being pushed against limit of main sheet, all force transfers to the boat
         if(Math.abs(this.sail_angle) === this.main_sheet && (Math.sign(this.sail_angle) === Math.sign(moment_round_mast) || this.sail_angle === 0)){
             return [result_sail[0], result_sail[1], this.calculate_moment(...result_sail)];
         }
-        // otherwise the force will rotate the boom instead of affecting the boat
+        // otherwise the force perpendicular to the sail will rotate the boom instead of affecting the boat
         this.sail_dv_rot = moment_round_mast/this.sail_moment_of_inertia;
-        return [0, 0, 0];
+        let parallel_component_x = Math.sin(this.sail_angle + this.bearing)*result_sail[0];
+        let parallel_component_y = Math.cos(this.sail_angle + this.bearing)*result_sail[1];
+        return [parallel_component_x, parallel_component_y, this.calculate_moment(parallel_component_x, parallel_component_y, result_sail[2])];
     }
 
 
