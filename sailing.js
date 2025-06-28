@@ -231,7 +231,8 @@ class Boat{
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
         let boom_length = (this.boat_points.clew[1] - this.boat_points.mast[1]);
-        return this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
+        let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
+        return [result_sail[0], result_sail[1], this.calculate_moment(...result_sail)];
     }
 
 
@@ -240,12 +241,15 @@ class Boat{
         let rudder_length = (this.boat_points.stern[1] - this.boat_points.rudder_tip[1]);
         let result_keel = this.calculate_lift(1000, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient);
         let result_rudder = this.calculate_lift(1000, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.keel_drag_coefficient);
-        return result_keel.map((num, i) => num + result_rudder[i]);
+        let resultant_x = result_keel[0] + result_rudder[0];
+        let resultant_y = result_keel[1] + result_rudder[1];
+        let resultant_moment = this.calculate_moment(...result_keel) + this.calculate_moment(...result_rudder);
+        return [resultant_x, resultant_y, resultant_moment];
     }
 
 
     calculate_lift(medium_density, medium_dx, medium_dy, wing_area, wing_area_leading, wing_bearing, wing_rotation_distance, wing_center_distance, wing_drag_parallel){
-        /** calculates forces and moments due to a given wing in a given medium
+        /** calculates forces on a given wing in a given medium and the point through which those forces act
          * @param {number} medium_density the density of the medium the wing is in (kg m^-3)
          * @param {number} medium_dx the speed in m s^-1 of the medium in the x direction
          * @param {number} medium_dy the speed in m s^-1 of the medium in the y direction
@@ -305,21 +309,33 @@ class Boat{
         let resultant_y = drag_parallel*Math.cos(toRadians(wing_bearing)) - force_perpendicular*Math.sin(toRadians(wing_bearing));
 
 
-        // moment calculation
-        // moment = force * perpendicular distance
-        // the perpendicular distance of force parallel with wing
-        let distance_parallel = Math.sin(toRadians(wing_bearing - this.bearing))*wing_rotation_distance;
-        // moment from parallel force
-        let moment_parallel = drag_parallel * distance_parallel;
+        // // moment calculation
+        // // moment = force * perpendicular distance
+        // // the perpendicular distance of force parallel with wing
+        // let distance_parallel = Math.sin(toRadians(wing_bearing - this.bearing))*wing_rotation_distance;
+        // // moment from parallel force
+        // let moment_parallel = drag_parallel * distance_parallel;
+        //
+        // // the perpendicular distance of force perpendicular to the wing
+        // let distance_perpendicular = wing_center_distance + wing_rotation_distance * Math.cos(toRadians(wing_bearing - this.bearing));
+        // // moment from perpendicular force
+        // let moment_perpendicular = force_perpendicular * distance_perpendicular;
+        //
+        // let resultant_moment = moment_parallel + moment_perpendicular;
 
-        // the perpendicular distance of force perpendicular to the wing
-        let distance_perpendicular = wing_center_distance + wing_rotation_distance * Math.cos(toRadians(wing_bearing - this.bearing));
-        // moment from perpendicular force
-        let moment_perpendicular = force_perpendicular * distance_perpendicular;
+        return [resultant_x, resultant_y, point];
+    }
 
-        let resultant_moment = moment_parallel + moment_perpendicular;
-
-        return [resultant_x, resultant_y, resultant_moment];
+    calculate_moment(force_x, force_y, point){
+        /**
+         * calculate the moment due to a force at a point relative to the center of rotation
+         * @param force_x{number} the x component of the force
+         * @param force_y{number} the y component of the force
+         * @param point{number[2]} the point relative to the center of rotation
+         */
+        let moment_from_x = force_x * point[1];
+        let moment_from_y = force_y * -point[0];
+        return moment_from_x + moment_from_y;
     }
 
     clear_debug(){
