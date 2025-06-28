@@ -1,21 +1,51 @@
+// preset for a sailing dinghy,
+// units: meters, kg, m^2, kg m^2
+dinghy_preset_1 = {
+    // length overall
+    "loa": 4.2,
+    // width in meters
+    "beam": 1.39,
+    "mass": 86.4,
+    "sail_area": 7.06,
+    "sail_edge_area": 0.7,
+    "sail_drag_coefficient": 0.004,
+    "keel_area": 0.35,
+    "keel_edge_area": 0.01,
+    "keel_drag_coefficient": 0.004,
+    "rudder_area": 0.2,
+    "rudder_edge_area": 0.01,
+    "rudder_drag_coefficient": 0.004,
+    "moment_of_inertia": 80,
+    "boat_points": {
+        "bow": [0, 2.1],
+        "port_stern": [-0.695, -2.1],
+        "starboard_stern": [0.695, -2.1],
+        "mast": [0, 0.6],
+        "keel": [0, -0],
+        "clew": [0, -2.1],
+        "stern": [0, -2.1],
+        "tiller_tip": [0, -1.05],
+        "rudder_tip": [0, -2.31]
+    },
+    "boat_colour": "#ffffff",
+    "gunwale_colour": "#000000",
+    "tiller_colour": "#000000",
+    "sail_colour": "#0000ff"
+}
+
 class Boat{
     /**
      * Boat
-     * @param {Number}x x position of boat in meters
-     * @param {Number}y y position of boat in meters
-     * @param {Number}beam beam(width) of boat in meters
-     * @param {Number}loa length overall of boat
-     * @param {Number}bearing bearing from North in degrees
-     * @param {Number}rudder_area area in meters squared of the side of the boat's rudder
-     * @param {Number}keel_area area in meters squared of the side of the boat's keel
-     * @param {Number}sail_area sail area in meters of the mainsail
-     * @param {Number}mass mass of the boat in kg
+     * @param {number}x x position of boat in meters
+     * @param {number}y y position of boat in meters
+     * @param {number}bearing bearing from North in degrees
+     * @param {Object}boat_stats an object with values for the boat's length, beam, mass etc. Example above
      */
-    constructor(x, y, beam, loa, bearing, rudder_area, keel_area, sail_area, mass) {
+    constructor(x, y, bearing, boat_stats) {
         // motion
         this.x = x; // meters
         this.y = y; // meters
-        this.mass = mass; // kilograms
+        this.mass = boat_stats.mass; // kilograms
         this.dx = 0; // meters per second
         this.dy = 0; // meters per second
         this.dx2 = 0; // ms^-2
@@ -24,42 +54,34 @@ class Boat{
         this.bearing = (bearing % 360 + 360)%360; // 0 to 360 degrees
         this.v_rot = 0; // rotational velocity in rad s^-1
         this.dv_rot = 0; // rotational acceleration in rad s^-2
-        this.moment_of_inertia = 80; // moment of inertia in kg m^2
+        this.moment_of_inertia = boat_stats.moment_of_inertia; // moment of inertia in kg m^2
         // sensors
         this.wind_getter = null;
         // sail
         this.sail_angle = 0; // -90 to 90 degrees
         this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
-        this.sail_area = sail_area; // meters squared
+        this.sail_area = boat_stats.sail_area; // meters squared
         this.sail_step = 5; // degrees
-        this.sail_drag_coefficient = 0.004;
-        this.sail_edge_area = 0.7;
+        this.sail_drag_coefficient = boat_stats.sail_drag_coefficient;
+        this.sail_edge_area = boat_stats.sail_edge_area;
         // rudder
         this.rudder_angle = 0; // -90 to 90
-        this.rudder_area = rudder_area; // meters squared
+        this.rudder_area = boat_stats.rudder_area; // meters squared
+        this.rudder_drag_coefficient = boat_stats.rudder_drag_coefficient;
+        this.rudder_edge_area = boat_stats.rudder_edge_area;
         this.rudder_step = 3; // degrees
         // keel
-        this.keel_area = keel_area; // meters squared
-        this.keel_drag_coefficient = 0.004;
-        this.keel_edge_area = 0.01;
+        this.keel_area = boat_stats.keel_area; // meters squared
+        this.keel_drag_coefficient = boat_stats.keel_drag_coefficient;
+        this.keel_edge_area = boat_stats.keel_edge_area;
         // boat dimensions and appearance
-        this.beam = beam; // (boat width) in meters
-        this.loa = loa; // length overall
-        this.boat_points = {
-            "bow": [0, 0.5*this.loa],
-            "port_stern": [-this.beam * 0.5, 0.5*-this.loa],
-            "starboard_stern": [this.beam * 0.5, -this.loa*0.5],
-            "mast": [0, 0.6],
-            "keel": [0, -0],
-            "clew": [0, -2.1],
-            "stern": [0, -this.loa*0.5],
-            "tiller_tip": [0, -0.25 * this.loa],
-            "rudder_tip": [0, -0.55 * this.loa]
-        };
-        this.boat_colour = "#ffffff"
-        this.gunwale_colour  = "#000000"
-        this.tiller_colour = "#000000"
-        this.sail_colour = "#0000ff"
+        this.beam = boat_stats.beam; // (boat width) in meters
+        this.loa = boat_stats.loa; // length overall
+        this.boat_points = boat_stats.boat_points;
+        this.boat_colour = boat_stats.boat_colour;
+        this.gunwale_colour  = boat_stats.gunwale_colour;
+        this.tiller_colour = boat_stats.tiller_colour;
+        this.sail_colour = boat_stats.sail_colour;
         // user control listener
         self.addEventListener('keydown', (event) => {
             const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
@@ -188,15 +210,10 @@ class Boat{
          */
         let radius = Math.sqrt(Math.pow(point[0], 2) + Math.pow(point[1] ,2));
         point = rotate(point, this.bearing);
-        this.debug_text += `xrot: ${point[0]}\n`;
-        this.debug_text += `yrot: ${point[1]}\n`;
         // velocity from boat rotation
         let v_from_rotation = this.v_rot * radius;
         let v_from_rotation_x = v_from_rotation*Math.cos(Math.atan2(point[0], point[1]));
         let v_from_rotation_y = v_from_rotation*-Math.sin(Math.atan2(point[0], point[1]));
-        this.debug_text += `vrot: ${v_from_rotation}\n`;
-        this.debug_text += `v rot x: ${v_from_rotation_x}\n`;
-        this.debug_text += `v rot y: ${v_from_rotation_y}\n`;
 
         let wind = this.wind_getter();
 
@@ -204,8 +221,6 @@ class Boat{
         let apparent_x = -this.dx + wind[0]*Math.sin(toRadians(wind[1])) + -v_from_rotation_x;
         // apparent velocity of medium in y direction
         let apparent_y = -this.dy + wind[0]*Math.cos(toRadians(wind[1])) + -v_from_rotation_y;
-        this.debug_text += `apparent x: ${apparent_x}\n`;
-        this.debug_text += `apparent y: ${apparent_y}\n`;
         return [apparent_x, apparent_y];
     }
 
