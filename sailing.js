@@ -134,9 +134,11 @@ class Boat{
 
     update_sail(){
         // updates sail to correct position according to wind and main sheet (soon to have updated realism)
-        let wind = this.wind_getter();
-        let distance_from_center = this.boat_points.mast[1] + (this.boat_points.mast[1] - this.boat_points.clew[1])*0.7 *Math.cos(toRadians(this.sail_angle + this.bearing));
-        let apparent_wind = this.calculate_apparent_wind(wind[0], wind[1], distance_from_center);
+        // x of point force acts through relative to boat center of rotation if boat is pointing north
+        let x = Math.sin(toRadians(this.sail_angle))*-0.7*(this.boat_points.mast[1] - this.boat_points.clew[1]);
+        // y of point force acts through relative to boat center of rotation if boat is pointing north
+        let y = this.boat_points.mast[1] + Math.cos(toRadians(this.sail_angle))*-0.7*(this.boat_points.mast[1] - this.boat_points.clew[1]);
+        let apparent_wind = this.calculate_apparent_wind([x, y]);
         let apparent_wind_bearing = toDegrees(Math.atan2(apparent_wind[0], apparent_wind[1]));
 
         let max_sail_angle = Math.sign(this.bearing - apparent_wind_bearing)*180 - (this.bearing - apparent_wind_bearing);
@@ -206,19 +208,26 @@ class Boat{
          * @param {Number[2]} point the point relative to the center of rotation when bearing is 0
          * @returns {Number[2]} the x and y components of the apparent wind at the given point
          */
-        let radius = Math.sqrt(Math.pow(x, 2) + Math.pow(y ,2));
+        let radius = Math.sqrt(Math.pow(point[0], 2) + Math.pow(point[1] ,2));
         point = rotate(point, this.bearing);
+        this.debug_text += `xrot: ${point[0]}\n`;
+        this.debug_text += `yrot: ${point[1]}\n`;
         // velocity from boat rotation
         let v_from_rotation = this.v_rot * radius;
         let v_from_rotation_x = v_from_rotation*Math.cos(Math.atan2(point[0], point[1]));
         let v_from_rotation_y = v_from_rotation*-Math.sin(Math.atan2(point[0], point[1]));
+        this.debug_text += `vrot: ${v_from_rotation}\n`;
+        this.debug_text += `v rot x: ${v_from_rotation_x}\n`;
+        this.debug_text += `v rot y: ${v_from_rotation_y}\n`;
 
         let wind = this.wind_getter();
 
         // apparent velocity of medium in x direction
-        let apparent_x = -this.dx + wind[0] + -v_from_rotation_x;
+        let apparent_x = -this.dx + wind[0]*Math.sin(toRadians(wind[1])) + -v_from_rotation_x;
         // apparent velocity of medium in y direction
-        let apparent_y = -this.dy + wind[1] + -v_from_rotation_y;
+        let apparent_y = -this.dy + wind[0]*Math.cos(toRadians(wind[1])) + -v_from_rotation_y;
+        this.debug_text += `apparent x: ${apparent_x}\n`;
+        this.debug_text += `apparent y: ${apparent_y}\n`;
         return [apparent_x, apparent_y];
     }
 
