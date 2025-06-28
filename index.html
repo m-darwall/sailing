@@ -15,8 +15,8 @@
     <script type="text/javascript"  src="sailing.js"></script>
     <script>
         let sea_canvas = new Canvas("sailing-canvas");
-        let sea = new Environment(0, 7.9, sea_canvas);
-        let boaty_mc_boat_face = new Boat(sea_canvas.width/2, sea_canvas.height/2, 1.39, 4.2, 0, 0.2, 0.35, 7.06, 86.4);
+        let sea = new Environment(0, 7.9, sea_canvas, 18);
+        let boaty_mc_boat_face = new Boat(sea_canvas.width/36, sea_canvas.height/36, 1.39, 4.2, 0, 0.2, 0.35, 7.06, 86.4);
         sea.add_boat(boaty_mc_boat_face);
         sea.toggle();
 

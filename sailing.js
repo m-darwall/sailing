@@ -1,33 +1,8 @@
-// boat visuals
-boat_colour = "#ffffff"
-gunwale_colour  = "#000000"
-tiller_colour = "#000000"
-sail_colour = "#0000ff"
-
-// physical constants
-air_density = 1;
-water_density = 1000;
-
-// display variable
-ppm = 18; // pixels per meter
-
-
-// wind indicator
-arrow_width = 30; // in pixels
-arrow_length = 60; // in pixels
-arrow_points = {
-    "tip": [0, 0.6*arrow_length],
-    "tail": [0, 0],
-    "left": [-arrow_width*0.5, -0.4*arrow_length],
-    "right": [arrow_width*0.5, -0.4*arrow_length]
-}
-
-
 class Boat{
     /**
      * Boat
-     * @param {Number}x x position of boat in pixels
-     * @param {Number}y y position of boat in pixels
+     * @param {Number}x x position of boat in meters
+     * @param {Number}y y position of boat in meters
      * @param {Number}beam beam(width) of boat in meters
      * @param {Number}loa length overall of boat
      * @param {Number}bearing bearing from North in degrees
@@ -38,8 +13,8 @@ class Boat{
      */
     constructor(x, y, beam, loa, bearing, rudder_area, keel_area, sail_area, mass) {
         // motion
-        this.x = x/ppm; // meters
-        this.y = y/ppm; // meters
+        this.x = x; // meters
+        this.y = y; // meters
         this.mass = mass; // kilograms
         this.dx = 0; // meters per second
         this.dy = 0; // meters per second
@@ -67,10 +42,9 @@ class Boat{
         this.keel_area = keel_area; // meters squared
         this.keel_drag_coefficient = 0.004;
         this.keel_edge_area = 0.01;
-        // boat dimensions
+        // boat dimensions and appearance
         this.beam = beam; // (boat width) in meters
         this.loa = loa; // length overall
-        // points for drawing the boat
         this.boat_points = {
             "bow": [0, 0.5*this.loa],
             "port_stern": [-this.beam * 0.5, 0.5*-this.loa],
@@ -82,6 +56,10 @@ class Boat{
             "tiller_tip": [0, -0.25 * this.loa],
             "rudder_tip": [0, -0.55 * this.loa]
         };
+        this.boat_colour = "#ffffff"
+        this.gunwale_colour  = "#000000"
+        this.tiller_colour = "#000000"
+        this.sail_colour = "#0000ff"
         // user control listener
         self.addEventListener('keydown', (event) => {
             const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
@@ -238,15 +216,15 @@ class Boat{
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
         let boom_length = (this.boat_points.clew[1] - this.boat_points.mast[1]);
-        return this.calculate_lift(air_density, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
+        return this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
     }
 
 
     calculate_water_resistance(){
         // calculate force on keel exerted by water and moment caused by that force
         let rudder_length = (this.boat_points.stern[1] - this.boat_points.rudder_tip[1]);
-        let result_keel = this.calculate_lift(water_density, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient);
-        let result_rudder = this.calculate_lift(water_density, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.keel_drag_coefficient);
+        let result_keel = this.calculate_lift(1000, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient);
+        let result_rudder = this.calculate_lift(1000, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.keel_drag_coefficient);
         return result_keel.map((num, i) => num + result_rudder[i]);
     }
 
@@ -342,8 +320,9 @@ class Environment{
      * @param wind_direction bearing of the wind
      * @param wind_speed speed of wind in that direction
      * @param canvas an HTML canvas to display on
+     * @param pixels_per_meter the scale of the displayed environment in pixels per meter
      */
-    constructor(wind_direction, wind_speed, canvas){
+    constructor(wind_direction, wind_speed, canvas, pixels_per_meter){
         this.wind_direction = wind_direction;
         this.wind_speed = wind_speed;
         this.canvas = canvas;
@@ -351,6 +330,16 @@ class Environment{
         this.previous_time = 0;
         this.delta_time = 0;
         this.animation_toggle = false;
+        this.ppm = pixels_per_meter;
+        // wind indicator
+        this.arrow_width = 30; // in pixels
+        this.arrow_length = 60; // in pixels
+        this.arrow_points = {
+            "tip": [0, 0.6*this.arrow_length],
+            "tail": [0, 0],
+            "left": [-this.arrow_width*0.5, -0.4*this.arrow_length],
+            "right": [this.arrow_width*0.5, -0.4*this.arrow_length]
+        }
     }
 
     start_environment(){
@@ -429,8 +418,8 @@ class Environment{
         for(let n = 0;n<this.boats.length;n++) {
             let boat = this.boats[n];
             boat.update(this.delta_time, this.wind_direction, this.wind_speed);
-            boat.x = ((boat.x % (this.canvas.width/ppm)) + (this.canvas.width/ppm))%(this.canvas.width/ppm);
-            boat.y = ((boat.y % (this.canvas.height/ppm)) + (this.canvas.height/ppm))%(this.canvas.height/ppm);
+            boat.x = ((boat.x % (this.canvas.width/this.ppm)) + (this.canvas.width/this.ppm))%(this.canvas.width/this.ppm);
+            boat.y = ((boat.y % (this.canvas.height/this.ppm)) + (this.canvas.height/this.ppm))%(this.canvas.height/this.ppm);
 
             // points on the boat when pointing in default direction
             let points = structuredClone(boat.boat_points);
@@ -474,11 +463,11 @@ class Environment{
                 let point_in_space = [point[0] + boat.x, point[1]+boat.y];
 
                 // convert to canvas location
-                points[key] = [point_in_space[0]*ppm, (this.canvas.height/ppm - point_in_space[1])*ppm];
+                points[key] = [point_in_space[0]*this.ppm, (this.canvas.height/this.ppm - point_in_space[1])*this.ppm];
             }
             // set boat colour
-            ctx.strokeStyle = gunwale_colour;
-            ctx.fillStyle = boat_colour;
+            ctx.strokeStyle = boat.gunwale_colour;
+            ctx.fillStyle = boat.boat_colour;
             // draw the boat
             ctx.beginPath();
             ctx.moveTo(points.bow[0], points.bow[1]);
@@ -488,16 +477,16 @@ class Environment{
             ctx.fill();
             ctx.stroke();
             // set tiller colour
-            ctx.strokeStyle = tiller_colour;
-            ctx.fillStyle = tiller_colour;
+            ctx.strokeStyle = boat.tiller_colour;
+            ctx.fillStyle = boat.tiller_colour;
             ctx.beginPath();
             ctx.moveTo(points.tiller_tip[0], points.tiller_tip[1]);
             ctx.lineTo(points.rudder_tip[0], points.rudder_tip[1]);
             ctx.closePath();
             ctx.stroke();
             // set sail colour
-            ctx.strokeStyle = sail_colour;
-            ctx.fillStyle = sail_colour;
+            ctx.strokeStyle = boat.sail_colour;
+            ctx.fillStyle = boat.sail_colour;
             ctx.beginPath();
             ctx.moveTo(points.mast[0], points.mast[1]);
             ctx.lineTo(points.clew[0], points.clew[1]);
@@ -525,11 +514,11 @@ class Environment{
         }
 
         // wind indicator
-        let points = structuredClone(arrow_points);
+        let points = structuredClone(this.arrow_points);
         for(let key of Object.keys(points)){
             //rotate the given point to align with wind direction and align with top left corner
             points[key] = rotate(points[key], this.wind_direction);
-            points[key] = [points[key][0] + arrow_length, (arrow_length - points[key][1])];
+            points[key] = [points[key][0] + this.arrow_length, (this.arrow_length - points[key][1])];
         }
 
         // draw direction indicator
@@ -547,7 +536,7 @@ class Environment{
 
         // draw speed readout
         ctx.font = "50px Courier New";
-        ctx.fillText(`${this.wind_speed}m/s`, 0.2*arrow_length, 2.3*arrow_length);
+        ctx.fillText(`${this.wind_speed}m/s`, 0.2*this.arrow_length, 2.3*this.arrow_length);
 
 
 
