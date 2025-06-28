@@ -9,6 +9,7 @@ dinghy_preset_1 = {
     "sail_area": 7.06,
     "sail_edge_area": 0.7,
     "sail_drag_coefficient": 0.004,
+    "boom_mass": 3,
     "keel_area": 0.35,
     "keel_edge_area": 0.01,
     "keel_drag_coefficient": 0.004,
@@ -64,6 +65,9 @@ class Boat{
         this.sail_step = 5; // degrees
         this.sail_drag_coefficient = boat_stats.sail_drag_coefficient;
         this.sail_edge_area = boat_stats.sail_edge_area;
+        this.sail_moment_of_inertia = (boat_stats.boom_mass * Math.pow(distance(boat_stats.boat_points.mast, boat_stats.boat_points.clew), 2))/3;
+        this.sail_v_rot = 0;
+        this.sail_dv_rot = 0;
         // rudder
         this.rudder_angle = 0; // -90 to 90
         this.rudder_area = boat_stats.rudder_area; // meters squared
@@ -117,7 +121,6 @@ class Boat{
         if(this.main_sheet < 0){
             this.main_sheet = 0;
         }
-        this.update_sail();
     }
 
     outHandler(){
@@ -126,45 +129,16 @@ class Boat{
         if(this.main_sheet > 90){
             this.main_sheet = 90;
         }
-        this.update_sail();
-        if(this.main_sheet > Math.abs(this.sail_angle)){
-            this.main_sheet = Math.abs(this.sail_angle);
-        }
     }
 
-    update_sail(){
-        // updates sail to correct position according to wind and main sheet (soon to have updated realism)
-        // x of point force acts through relative to boat center of rotation if boat is pointing north
-        let x = Math.sin(toRadians(this.sail_angle))*-0.7*(this.boat_points.mast[1] - this.boat_points.clew[1]);
-        // y of point force acts through relative to boat center of rotation if boat is pointing north
-        let y = this.boat_points.mast[1] + Math.cos(toRadians(this.sail_angle))*-0.7*(this.boat_points.mast[1] - this.boat_points.clew[1]);
-        let apparent_wind = this.calculate_apparent_wind([x, y]);
-        let apparent_wind_bearing = toDegrees(Math.atan2(apparent_wind[0], apparent_wind[1]));
-
-        let max_sail_angle = Math.sign(this.bearing - apparent_wind_bearing)*180 - (this.bearing - apparent_wind_bearing);
-        if(apparent_wind_bearing === this.bearing){
-            max_sail_angle = 90;
-        }
-        if (Math.abs(max_sail_angle) > 90){
-            max_sail_angle = Math.sign(max_sail_angle)*90;
-        }
-        if(Math.abs(max_sail_angle) > this.main_sheet){
-            max_sail_angle = Math.sign(max_sail_angle)*this.main_sheet;
-        }
-        this.sail_angle = max_sail_angle;
-    }
-
-    // updates boat state
     update(delta_time){
         /** updates boat position, rotation and acceleration
          * @param {Number} delta_time time in milliseconds since last update
          */
         this.update_position_and_velocity(delta_time);
         this.update_rotation(delta_time);
-        this.update_sail();
         this.update_acceleration();
     }
-
 
     update_acceleration(){
         // updates boat translational and rotational acceleration due to environmental factors
@@ -197,10 +171,19 @@ class Boat{
         /** updates boat bearing and rotational velocity based on rotational velocity and rotational acceleration
          * @param {Number} delta_time time in milliseconds since last update
          */
-        // use v = u + at to update rotational velocity
+        // use v = u + at to update rotational velocity of boat and sail
         this.v_rot = this.v_rot + this.dv_rot*delta_time/1000;
-        // use x = ut + 0.5at^2 to find new rotation
+        this.sail_v_rot = this.sail_v_rot + this.sail_dv_rot*delta_time/1000;
+        // use x = ut + 0.5at^2 to find new rotation of boat and sail
+        let sail_bearing = this.bearing + this.sail_angle;
         this.bearing = ((this.bearing + toDegrees(this.v_rot*delta_time/1000 + 0.5*this.dv_rot*Math.pow(delta_time/1000, 2))) % 360 +360)%360;
+        sail_bearing = sail_bearing + toDegrees(this.sail_v_rot*delta_time/1000 + 0.5*this.sail_dv_rot*Math.pow(delta_time/1000, 2));
+        this.sail_angle = sail_bearing - this.bearing;
+        if(Math.abs(this.sail_angle) >= this.main_sheet){
+            this.sail_angle = Math.sign(this.sail_angle)*this.main_sheet;
+            this.sail_dv_rot = 0;
+            this.sail_v_rot = 0;
+        }
     }
 
     calculate_apparent_wind(point){
@@ -226,13 +209,21 @@ class Boat{
 
 
     calculate_wind_force(){
-        // calculate the force on the sail exerted by the wind and the moment caused by that force
+        // calculate the force and moment on the boat exerted by the sail due to the wind
         let wind = this.wind_getter();
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
         let boom_length = (this.boat_points.clew[1] - this.boat_points.mast[1]);
         let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.7, this.sail_drag_coefficient);
-        return [result_sail[0], result_sail[1], this.calculate_moment(...result_sail)];
+        let mast = rotate(this.boat_points.mast, this.bearing);
+        let moment_round_mast = this.calculate_moment(result_sail[0], result_sail[1], [result_sail[2][0] - mast[0], result_sail[2][1] - mast[1]]);
+        // if sail is being pushed against limit of main sheet, force transfers to the boat
+        if(Math.abs(this.sail_angle) === this.main_sheet && (Math.sign(this.sail_angle) === Math.sign(moment_round_mast) || this.sail_angle === 0)){
+            return [result_sail[0], result_sail[1], this.calculate_moment(...result_sail)];
+        }
+        // otherwise the force will rotate the boom instead of affecting the boat
+        this.sail_dv_rot = moment_round_mast/this.sail_moment_of_inertia;
+        return [0, 0, 0];
     }
 
 
@@ -307,21 +298,6 @@ class Boat{
         let resultant_x = drag_parallel*Math.sin(toRadians(wing_bearing)) + force_perpendicular*Math.cos(toRadians(wing_bearing));
         // resultant translational force in y direction
         let resultant_y = drag_parallel*Math.cos(toRadians(wing_bearing)) - force_perpendicular*Math.sin(toRadians(wing_bearing));
-
-
-        // // moment calculation
-        // // moment = force * perpendicular distance
-        // // the perpendicular distance of force parallel with wing
-        // let distance_parallel = Math.sin(toRadians(wing_bearing - this.bearing))*wing_rotation_distance;
-        // // moment from parallel force
-        // let moment_parallel = drag_parallel * distance_parallel;
-        //
-        // // the perpendicular distance of force perpendicular to the wing
-        // let distance_perpendicular = wing_center_distance + wing_rotation_distance * Math.cos(toRadians(wing_bearing - this.bearing));
-        // // moment from perpendicular force
-        // let moment_perpendicular = force_perpendicular * distance_perpendicular;
-        //
-        // let resultant_moment = moment_parallel + moment_perpendicular;
 
         return [resultant_x, resultant_y, point];
     }
@@ -635,4 +611,14 @@ function toRadians(degrees){
 function toDegrees(radians){
     // convert radians to degrees
     return radians*180/Math.PI;
+}
+
+function distance(point1, point2){
+    /**
+     * gives the distance between point1 and point2
+     * @param {Number[2]}point1 a point [x, y]
+     * @param {Number[2]}point2 a point [x, y]
+     * @returns {Number} a distance in the same unit as the coordinates
+     */
+    return Math.sqrt(Math.pow(point1[0]-point2[0], 2) + Math.pow(point1[1]-point2[1], 2));
 }
