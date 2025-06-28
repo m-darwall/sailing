@@ -14,7 +14,9 @@ It is very much a work in progress.
 - somewhat realistic steering with the tiller
 
 ## Intended Features
-- sail fills when wind is acting on it
+- sail increases drag when too close to wind and flags to indicate this
+- main sheet shown to make boat state clearer
+- apparent wind indicator
 - goals appear which award points when user navigates to them (Snake but with a boat)
 - mobile compatibility
 - visual improvements to boat and water
