@@ -8,21 +8,22 @@ dinghy_preset_1 = {
     "mass": 86.4,
     "sail_area": 7.06,
     "sail_edge_area": 0.7,
-    "sail_drag_coefficient": 0.004,
+    "sail_drag_coefficient": 0.0004,
     "boom_mass": 3,
     "keel_area": 0.35,
     "keel_edge_area": 0.01,
-    "keel_drag_coefficient": 0.004,
+    "keel_drag_coefficient": 0.04,
     "rudder_area": 0.2,
     "rudder_edge_area": 0.01,
-    "rudder_drag_coefficient": 0.004,
+    "rudder_drag_coefficient": 0.04,
     "moment_of_inertia": 80,
     "boat_points": {
         "bow": [0, 2.1],
         "port_stern": [-0.695, -2.1],
         "starboard_stern": [0.695, -2.1],
-        "mast": [0, 0.6],
-        "keel": [0, -0],
+        // "mast": [0, 0.6],
+        "mast": [0, 0.7],
+        "keel": [0, 0],
         "clew": [0, -2.1],
         "stern": [0, -2.1],
         "tiller_tip": [0, -1.05],
@@ -63,11 +64,15 @@ class Boat{
         this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
         this.sail_area = boat_stats.sail_area; // meters squared
         this.sail_step = 5; // degrees
+        this.boom_length = distance(boat_stats.boat_points.mast, boat_stats.boat_points.clew);
         this.sail_drag_coefficient = boat_stats.sail_drag_coefficient;
+        this.sail_drag_coefficient_pinching = 0.025 + 0.04*(this.boom_length/(this.sail_area/this.boom_length));
         this.sail_edge_area = boat_stats.sail_edge_area;
-        this.sail_moment_of_inertia = (boat_stats.boom_mass * Math.pow(distance(boat_stats.boat_points.mast, boat_stats.boat_points.clew), 2))/3;
+
+        this.sail_moment_of_inertia = (boat_stats.boom_mass * Math.pow(this.boom_length, 2))/3;
         this.sail_v_rot = 0;
         this.sail_dv_rot = 0;
+        this.flapping = false;
         // rudder
         this.rudder_angle = 0; // -90 to 90
         this.rudder_area = boat_stats.rudder_area; // meters squared
@@ -213,8 +218,9 @@ class Boat{
         let wind = this.wind_getter();
         let wind_x = wind[0] * Math.sin(toRadians(wind[1]));
         let wind_y = wind[0] * Math.cos(toRadians(wind[1]));
+
         let boom_length = (this.boat_points.clew[1] - this.boat_points.mast[1]);
-        let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length/3, this.sail_drag_coefficient);
+        let result_sail = this.calculate_lift(1, wind_x, wind_y, this.sail_area, this.sail_edge_area, ((this.bearing + this.sail_angle)% 360 +360)%360, this.boat_points.mast[1], boom_length*0.35, this.sail_drag_coefficient, this.sail_drag_coefficient_pinching);
         let mast = rotate(this.boat_points.mast, this.bearing);
         let moment_round_mast = this.calculate_moment(result_sail[0], result_sail[1], [result_sail[2][0] - mast[0], result_sail[2][1] - mast[1]]);
         // if sail is being pushed against limit of main sheet, all force transfers to the boat
@@ -232,8 +238,8 @@ class Boat{
     calculate_water_resistance(){
         // calculate force on keel exerted by water and moment caused by that force
         let rudder_length = (this.boat_points.stern[1] - this.boat_points.rudder_tip[1]);
-        let result_keel = this.calculate_lift(1000, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient);
-        let result_rudder = this.calculate_lift(1000, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.keel_drag_coefficient);
+        let result_keel = this.calculate_lift(1000, 0, 0, this.keel_area, this.keel_edge_area, this.bearing, this.boat_points.keel[1], 0, this.keel_drag_coefficient, this.keel_drag_coefficient);
+        let result_rudder = this.calculate_lift(1000, 0, 0, this.rudder_area, this.keel_edge_area, this.bearing + this.rudder_angle, this.boat_points.stern[1], rudder_length/2, this.rudder_drag_coefficient, this.rudder_drag_coefficient);
         let resultant_x = result_keel[0] + result_rudder[0];
         let resultant_y = result_keel[1] + result_rudder[1];
         let resultant_moment = this.calculate_moment(...result_keel) + this.calculate_moment(...result_rudder);
@@ -241,7 +247,7 @@ class Boat{
     }
 
 
-    calculate_lift(medium_density, medium_dx, medium_dy, wing_area, wing_area_leading, wing_bearing, wing_rotation_distance, wing_center_distance, wing_drag_parallel){
+    calculate_lift(medium_density, medium_dx, medium_dy, wing_area, wing_area_leading, wing_bearing, wing_rotation_distance, wing_center_distance, wing_drag_parallel, wing_drag_pinching){
         /** calculates forces on a given wing in a given medium and the point through which those forces act
          * @param {number} medium_density the density of the medium the wing is in (kg m^-3)
          * @param {number} medium_dx the speed in m s^-1 of the medium in the x direction
@@ -251,7 +257,8 @@ class Boat{
          * @param {number}wing_bearing the direction the front of the wing is pointing, in degrees from north
          * @param {number}wing_rotation_distance the distance from the center of the boat to the point the wing rotates around, in meters
          * @param {number}wing_center_distance the distance in meters between the point the wing rotates around and the point on the wing where the force acts
-         * @param {number}wing_drag_parallel the drag coefficient of the sail parallel to the direction of the sail
+         * @param {number}wing_drag_parallel the drag coefficient of the wing parallel to the direction of the wing
+         * @param {number}wing_drag_pinching the drag coefficient of the wing parallel to the direction of the wing when flow is too close to wing angle
          * @returns {number[3]} An array of three numbers: [The force in the x direction(N), the force in the y direction(N), the moment clockwise(Nm)]
          **/
 
@@ -277,6 +284,7 @@ class Boat{
         let apparent_magnitude = Math.sqrt(Math.pow(apparent_x, 2) + Math.pow(apparent_y, 2));
         let apparent_bearing = toDegrees(Math.atan2(apparent_x, apparent_y));
         let relative_bearing = apparent_bearing - wing_bearing;
+        let angle_to_flow = ((relative_bearing % 360 + 360)%360) - 180;
 
         // apparent medium velocity parallel to wing
         let apparent_parallel = Math.cos(toRadians(relative_bearing))*apparent_magnitude;
@@ -285,7 +293,15 @@ class Boat{
 
         // parallel drag force
         // drag along wing, using F_d = 0.5 * medium density * flow velocity ^ 2 * drag coefficient * reference area
-        let drag_parallel = Math.sign(apparent_parallel) * 0.5 * medium_density * Math.pow(apparent_parallel, 2) * wing_drag_parallel * wing_area_leading;
+        let drag_coefficient = wing_drag_parallel;
+        // if sailing too close to the wind increase drag and flap sail
+        if(Math.abs(angle_to_flow) < 10 && wing_drag_parallel !== wing_drag_pinching){
+            drag_coefficient = wing_drag_pinching;
+            this.flapping = true;
+        }else if (wing_drag_parallel !== wing_drag_pinching){
+            this.flapping = false;
+        }
+        let drag_parallel = Math.sign(apparent_parallel) * 0.5 * medium_density * Math.pow(apparent_parallel, 2) * drag_coefficient * wing_area_leading;
         // perpendicular drag force, F = m(v - u)/t. Or, F =  mass per second * (v-u)
         // change in velocity(v - u) of medium perpendicular to wing, assume wing stops flow entirely
         let delta_v_perpendicular = 0 - apparent_perpendicular;
@@ -496,10 +512,16 @@ class Environment{
             // set sail colour
             ctx.strokeStyle = boat.sail_colour;
             ctx.fillStyle = boat.sail_colour;
-            ctx.beginPath();
+            // ctx.beginPath();
             ctx.moveTo(points.mast[0], points.mast[1]);
-            ctx.lineTo(points.clew[0], points.clew[1]);
-            ctx.closePath();
+            if(boat.flapping){
+                let random_point = random_point_near_line(points.mast, points.clew, 3);
+                let random_point1 = random_point_near_line(points.mast, points.clew, 3);
+                ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
+            }else{
+                ctx.lineTo(points.clew[0], points.clew[1]);
+            }
+            // ctx.closePath();
             ctx.stroke();
 
             // boat stats
@@ -623,4 +645,22 @@ function distance(point1, point2){
      * @returns {Number} a distance in the same unit as the coordinates
      */
     return Math.sqrt(Math.pow(point1[0]-point2[0], 2) + Math.pow(point1[1]-point2[1], 2));
+}
+
+function random_point_near_line(point1, point2, max){
+    /**
+     * returns a random point within max distance of the line between point1 and point2
+     * @param point1{Number[2]} a point[x,y]
+     * @param point2{Number[2]} a point[x,y]
+     * @param max{Number} the distance from the line which the point must not exceed
+     * @returns {Number[2]} a point within max of the line between point 1 and 2
+     */
+    let x = Math.min(point1[0], point2[0]) + Math.random()*Math.abs(point2[0] - point1[0]);
+    let y = Math.min(point1[1], point2[1]) + Math.random()*Math.abs(point2[1] - point1[1]);
+    let delta_x = (2*Math.random() - 1)*max;
+    let delta_y = (2*Math.random() - 1)*(Math.pow(max, 2) - Math.pow(delta_x, 2));
+    if(Math.random() < 0.5){
+        return [x + delta_x, y + delta_y];
+    }
+    return [x + delta_y, y + delta_x];
 }
