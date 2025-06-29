@@ -17,19 +17,33 @@ dinghy_preset_1 = {
     "rudder_edge_area": 0.01,
     "rudder_drag_coefficient": 0.04,
     "moment_of_inertia": 80,
+    // "boat_points": {
+    //     "bow": [0, 2.1],
+    //     "port_max": [-0.695, 0],
+    //     "starboard_max": [0.695, 0],
+    //     "port_stern": [-0.5335, -2.1],
+    //     "starboard_stern": [0.5335, -2.1],
+    //     "mast": [0, 0.6],
+    //     "keel": [0, 0],
+    //     "clew": [0, -2.2],
+    //     "main_sheet_block": [0, -2],
+    //     "stern": [0, -2.1],
+    //     "tiller_tip": [0, -1.05],
+    //     "rudder_tip": [0, -2.31]
+    // },
     "boat_points": {
-        "bow": [0, 2.1],
-        "port_max": [-0.695, 0],
-        "starboard_max": [0.695, 0],
-        "port_stern": [-0.5335, -2.1],
-        "starboard_stern": [0.5335, -2.1],
-        "mast": [0, 0.6],
+        "bow": [0, 1.8288],
+        "port_max": [-0.695*6/4, -0.27],
+        "starboard_max": [0.695*6/4, -0.27],
+        "port_stern": [-0.5335, -2.3712],
+        "starboard_stern": [0.5335, -2.3712],
+        "mast": [0, 0.3],
         "keel": [0, 0],
-        "clew": [0, -2.2],
-        "main_sheet_block": [0, -2],
-        "stern": [0, -2.1],
-        "tiller_tip": [0, -1.05],
-        "rudder_tip": [0, -2.31]
+        "clew": [0, -2.4712],
+        "main_sheet_block": [0, -2.2712],
+        "stern": [0, -2.3712],
+        "tiller_tip": [0, -1.35],
+        "rudder_tip": [0, -2.5712]
     },
     "boat_colour": "#ffffff",
     "gunwale_colour": "#000000",
@@ -545,10 +559,6 @@ class Environment{
             ctx.beginPath();
             ctx.moveTo(points.main_sheet_block[0], points.main_sheet_block[1]);
             let slack = boat.main_sheet_length - distance(points.clew, points.main_sheet_block)/this.ppm;
-            boat.debug_text += boat.main_sheet_length;
-            boat.debug_text += "\n";
-            boat.debug_text += distance(points.clew, points.main_sheet_block)/this.ppm;
-            boat.debug_text += "\n";
             if(slack < 0.1){
                 ctx.lineTo(points.clew[0], points.clew[1]);
             } else {
