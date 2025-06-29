@@ -10,10 +10,11 @@ dinghy_preset_1 = {
     "sail_edge_area": 0.7,
     "sail_drag_coefficient": 0.0004,
     "boom_mass": 3,
-    "keel_area": 0.35,
+    // "keel_area": 0.35,
+    "keel_area": 0.65,
     "keel_edge_area": 0.01,
     "keel_drag_coefficient": 0.04,
-    "rudder_area": 0.2,
+    "rudder_area": 0.1,
     "rudder_edge_area": 0.01,
     "rudder_drag_coefficient": 0.04,
     "moment_of_inertia": 80,
@@ -21,10 +22,9 @@ dinghy_preset_1 = {
         "bow": [0, 2.1],
         "port_stern": [-0.695, -2.1],
         "starboard_stern": [0.695, -2.1],
-        // "mast": [0, 0.6],
-        "mast": [0, 0.7],
+        "mast": [0, 0.6],
         "keel": [0, 0],
-        "clew": [0, -2.1],
+        "clew": [0, -2.2],
         "stern": [0, -2.1],
         "tiller_tip": [0, -1.05],
         "rudder_tip": [0, -2.31]
@@ -66,7 +66,7 @@ class Boat{
         this.sail_step = 5; // degrees
         this.boom_length = distance(boat_stats.boat_points.mast, boat_stats.boat_points.clew);
         this.sail_drag_coefficient = boat_stats.sail_drag_coefficient;
-        this.sail_drag_coefficient_pinching = 0.025 + 0.04*(this.boom_length/(this.sail_area/this.boom_length));
+        this.sail_drag_coefficient_pinching = 0.025 + 0.08*(this.boom_length/2*(this.sail_area/this.boom_length));
         this.sail_edge_area = boat_stats.sail_edge_area;
 
         this.sail_moment_of_inertia = (boat_stats.boom_mass * Math.pow(this.boom_length, 2))/3;
