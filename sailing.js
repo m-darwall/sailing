@@ -10,7 +10,6 @@ dinghy_preset_1 = {
     "sail_edge_area": 0.7,
     "sail_drag_coefficient": 0.0004,
     "boom_mass": 3,
-    // "keel_area": 0.35,
     "keel_area": 0.65,
     "keel_edge_area": 0.01,
     "keel_drag_coefficient": 0.04,
@@ -25,6 +24,7 @@ dinghy_preset_1 = {
         "mast": [0, 0.6],
         "keel": [0, 0],
         "clew": [0, -2.2],
+        "main_sheet_block": [0, -2],
         "stern": [0, -2.1],
         "tiller_tip": [0, -1.05],
         "rudder_tip": [0, -2.31]
@@ -32,7 +32,8 @@ dinghy_preset_1 = {
     "boat_colour": "#ffffff",
     "gunwale_colour": "#000000",
     "tiller_colour": "#000000",
-    "sail_colour": "#0000ff"
+    "sail_colour": "#0000ff",
+    "sheet_colour": "#ff0000"
 }
 
 class Boat{
@@ -62,6 +63,7 @@ class Boat{
         // sail
         this.sail_angle = 0; // -90 to 90 degrees
         this.main_sheet = 0; // quantity of main sheet let out. Measured as current max degrees from center line for the boom
+        this.main_sheet_length = 0;
         this.sail_area = boat_stats.sail_area; // meters squared
         this.sail_step = 5; // degrees
         this.boom_length = distance(boat_stats.boat_points.mast, boat_stats.boat_points.clew);
@@ -91,6 +93,7 @@ class Boat{
         this.gunwale_colour  = boat_stats.gunwale_colour;
         this.tiller_colour = boat_stats.tiller_colour;
         this.sail_colour = boat_stats.sail_colour;
+        this.sheet_colour = boat_stats.sheet_colour;
         // user control listener
         self.addEventListener('keydown', (event) => {
             const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
@@ -126,6 +129,7 @@ class Boat{
         if(this.main_sheet < 0){
             this.main_sheet = 0;
         }
+        this.update_main_sheet_length();
     }
 
     outHandler(){
@@ -134,6 +138,18 @@ class Boat{
         if(this.main_sheet > 90){
             this.main_sheet = 90;
         }
+        this.update_main_sheet_length();
+    }
+
+    update_main_sheet_length(){
+        // calculate new length of main sheet,
+        // i.e. the distance between the end of the boom and the held end of the sheet if sail is at limit of main sheet
+        let held_end = this.boat_points.main_sheet_block;
+        let sail_end = this.boat_points.clew;
+        sail_end = [sail_end[0] - this.boat_points.mast[0], sail_end[1] - this.boat_points.mast[1]];
+        sail_end = rotate(sail_end, this.main_sheet);
+        sail_end = [sail_end[0] + this.boat_points.mast[0], sail_end[1] + this.boat_points.mast[1]];
+        this.main_sheet_length = distance(sail_end, held_end);
     }
 
     update(delta_time){
@@ -512,7 +528,6 @@ class Environment{
             // set sail colour
             ctx.strokeStyle = boat.sail_colour;
             ctx.fillStyle = boat.sail_colour;
-            // ctx.beginPath();
             ctx.moveTo(points.mast[0], points.mast[1]);
             if(boat.flapping){
                 let random_point = random_point_near_line(points.mast, points.clew, 3);
@@ -521,9 +536,24 @@ class Environment{
             }else{
                 ctx.lineTo(points.clew[0], points.clew[1]);
             }
-            // ctx.closePath();
             ctx.stroke();
-
+            // draw main sheet
+            ctx.strokeStyle = boat.sheet_colour;
+            ctx.beginPath();
+            ctx.moveTo(points.main_sheet_block[0], points.main_sheet_block[1]);
+            let slack = boat.main_sheet_length - distance(points.clew, points.main_sheet_block)/this.ppm;
+            boat.debug_text += boat.main_sheet_length;
+            boat.debug_text += "\n";
+            boat.debug_text += distance(points.clew, points.main_sheet_block)/this.ppm;
+            boat.debug_text += "\n";
+            if(slack < 0.1){
+                ctx.lineTo(points.clew[0], points.clew[1]);
+            } else {
+                let random_point = random_point_near_line(points.main_sheet_block, points.clew, slack);
+                let random_point1 = random_point_near_line(points.main_sheet_block, points.clew, slack);
+                ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
+            }
+            ctx.stroke();
             // boat stats
             ctx.fillStyle = "#000000";
             ctx.font = "25px Courier New";
