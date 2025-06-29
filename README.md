@@ -13,9 +13,9 @@ It is very much a work in progress.
 - somewhat realistic effects of water and wind on the boat based on physics
 - somewhat realistic steering with the tiller
 - sail increases drag when too close to wind and flags to indicate this
+- main sheet shown to make boat state clearer
 
 ## Intended Features
-- main sheet shown to make boat state clearer
 - apparent wind indicator
 - goals appear which award points when user navigates to them (Snake but with a boat)
 - mobile compatibility
