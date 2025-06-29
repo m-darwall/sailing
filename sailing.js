@@ -96,17 +96,6 @@ class Boat{
         this.tiller_colour = boat_stats.tiller_colour;
         this.sail_colour = boat_stats.sail_colour;
         this.sheet_colour = boat_stats.sheet_colour;
-        // user control listener
-        self.addEventListener('keydown', (event) => {
-            const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
-            const callback = {
-                "KeyA"  : this.leftHandler.bind(this),
-                "KeyD" : this.rightHandler.bind(this),
-                "KeyI"    : this.inHandler.bind(this),
-                "KeyO"  : this.outHandler.bind(this),
-            }[key];
-            callback?.()
-        });
         // debugging
         this.debug_text = ""; // for logging values and printing them to screen
     }
@@ -370,6 +359,7 @@ class Environment{
         this.wind_speed = wind_speed;
         this.canvas = canvas;
         this.boats = [];
+        this.captains = [];
         this.previous_time = 0;
         this.delta_time = 0;
         this.animation_toggle = false;
@@ -391,12 +381,18 @@ class Environment{
         this.previous_time = performance.now();
         this.render();
         window.requestAnimationFrame(this.draw.bind(this));
+        for(let n = 0;n<this.captains.length;n++) {
+            this.captains[n].wake();
+        }
     }
 
     stop_environment(){
         // stop animating the environment
         this.animation_toggle = false;
         window.cancelAnimationFrame(this.draw);
+        for(let n = 0;n<this.captains.length;n++) {
+            this.captains[n].sleep();
+        }
     }
 
     toggle(){
@@ -415,6 +411,10 @@ class Environment{
          **/
         boat.wind_getter = this.get_wind.bind(this);
         this.boats.push(boat);
+    }
+
+    add_captain(captain){
+        this.captains.push(captain);
     }
 
     get_wind(){
@@ -604,6 +604,39 @@ class Environment{
         if(this.animation_toggle){
             window.requestAnimationFrame(this.draw.bind(this));
         }
+    }
+}
+
+class Agent{
+    constructor(boat, awake) {
+        this.boat = boat;
+        this.awake = awake;
+    }
+    wake(){
+        this.awake = true;
+    }
+    sleep(){
+        this.awake = false;
+    }
+}
+
+class UserAgent extends Agent{
+    constructor(boat, awake, port, starboard, pull, let_out) {
+        super(boat, awake);
+        // user control listener
+        window.addEventListener('keydown', (event) => {
+            const key = event.code; // "ArrowRight", "ArrowLeft", "ArrowUp", or "ArrowDown"
+            const callback = {
+                [port]  : this.boat.leftHandler.bind(this.boat),
+                [starboard] : this.boat.rightHandler.bind(this.boat),
+                [pull]    : this.boat.inHandler.bind(this.boat),
+                [let_out]  : this.boat.outHandler.bind(this.boat),
+            }[key];
+            if(this.awake){
+                callback?.()
+            }
+
+        });
     }
 }
 
