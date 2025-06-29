@@ -19,8 +19,10 @@ dinghy_preset_1 = {
     "moment_of_inertia": 80,
     "boat_points": {
         "bow": [0, 2.1],
-        "port_stern": [-0.695, -2.1],
-        "starboard_stern": [0.695, -2.1],
+        "port_max": [-0.695, 0],
+        "starboard_max": [0.695, 0],
+        "port_stern": [-0.5335, -2.1],
+        "starboard_stern": [0.5335, -2.1],
         "mast": [0, 0.6],
         "keel": [0, 0],
         "clew": [0, -2.2],
@@ -512,8 +514,9 @@ class Environment{
             // draw the boat
             ctx.beginPath();
             ctx.moveTo(points.bow[0], points.bow[1]);
-            ctx.quadraticCurveTo(points.port_stern[0], points.port_stern[1], points.stern[0], points.stern[1]);
-            ctx.quadraticCurveTo(points.starboard_stern[0], points.starboard_stern[1], points.bow[0], points.bow[1]);
+            ctx.quadraticCurveTo(points.port_max[0], points.port_max[1], points.port_stern[0], points.port_stern[1]);
+            ctx.lineTo(points.starboard_stern[0], points.starboard_stern[1]);
+            ctx.quadraticCurveTo(points.starboard_max[0], points.starboard_max[1], points.bow[0], points.bow[1]);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
