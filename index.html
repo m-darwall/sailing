@@ -30,6 +30,10 @@
                 sea.toggle();
             }
         }
+        // resize sea when page is resized
+        document.body.onresize = function (){
+            sea.render();
+        }
     </script>
 
 </body>
