@@ -440,7 +440,12 @@ class Environment{
                 node.x *= width_change;
                 node.y *= height_change;
             });
-
+        this.buoys.forEach(
+            // adjust boat positions on resize to keep all in frame
+            function (node){
+                node.x *= width_change;
+                node.y *= height_change;
+            });
     }
 
 
