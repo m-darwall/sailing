@@ -640,7 +640,7 @@ class Environment{
         // get time elapsed since last frame
         this.delta_time = current_time - this.previous_time;
         this.previous_time = current_time;
-        //iterate through every boat
+        //iterate through every buoy
         for(let n = 0;n<this.buoys.length;n++) {
             let buoy = this.buoys[n];
             buoy.draw_self(ctx, this.ppm, [0, this.canvas.height/this.ppm], this.delta_time);
