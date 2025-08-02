@@ -532,16 +532,16 @@ class Timer{
                 let time_since_start = Date.now() - this.start_time;
                 this.time = this.initial_time + this.direction*time_since_start;
                 this.text = this.time_to_text(this.time);
-                this.draw(context);
+                this.draw_self(context);
                 return true;
             }else{
                 this.time = this.initial_time + this.duration*this.direction;
                 this.text = this.time_to_text(this.time);
-                this.draw(context);
+                this.draw_self(context);
                 return false
             }
         }
-        this.draw(context);
+        this.draw_self(context);
         return true;
     }
     time_to_text(time){
@@ -556,7 +556,7 @@ class Timer{
 
         return text;
     }
-    draw(context){
+    draw_self(context){
         context.fillStyle = this.colour;
         context.font = this.font;
         let remaining_time = this.end_time - Date.now();
