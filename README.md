@@ -5,7 +5,7 @@ In the process of making it I will hopefully also learn a bit more about how sai
 
 It is very much a work in progress.
 
-## Implemented Features
+## Implemented Features(Improvements still to be made)
 - keyboard controls for tiller and sail. The A and D keys steer port and starboard, I(n) and O(ut) keys let sail in and out according to wind
 - boat and environment are displayed
 - wind direction/speed indicated
@@ -14,10 +14,11 @@ It is very much a work in progress.
 - somewhat realistic steering with the tiller
 - sail increases drag when too close to wind and flags to indicate this
 - main sheet shown to make boat state clearer
+- goals appear which award points when user navigates to them (Snake but with a boat)
 
 ## Intended Features
 - apparent wind indicator
-- goals appear which award points when user navigates to them (Snake but with a boat)
+- objects draw themselves
 - mobile compatibility
 - visual improvements to boat and water
 - infinite sailing mode (view moves rather than boat)

@@ -16,11 +16,12 @@
     <script>
         let sea_canvas = new Canvas("sailing-canvas");
         let sea = new Environment(90, 7.9, sea_canvas, 18);
-        let boaty_mc_boat_face = new Boat(sea_canvas.width/36, sea_canvas.height/36, 0, dinghy_preset_1);
+        let boaty_mc_boat_face = new Boat("Boaty", sea_canvas.width/36, sea_canvas.height/36, 0, dinghy_preset_1);
         let user = new UserAgent(boaty_mc_boat_face, false, "KeyA", "KeyD", "KeyI", "KeyO");
         sea.add_boat(boaty_mc_boat_face);
         sea.add_captain(user);
         sea.toggle();
+        sea.start_snake();
 
         // add pause button
         document.body.onkeyup = function(e) {

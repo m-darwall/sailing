@@ -41,12 +41,13 @@ dinghy_preset_1 = {
 class Boat{
     /**
      * Boat
+     * @param name the name of the boat
      * @param {number}x x position of boat in meters
      * @param {number}y y position of boat in meters
      * @param {number}bearing bearing from North in degrees
      * @param {Object}boat_stats an object with values for the boat's length, beam, mass etc. Example above
      */
-    constructor(x, y, bearing, boat_stats) {
+    constructor(name, x, y, bearing, boat_stats) {
         // motion
         this.x = x; // meters
         this.y = y; // meters
@@ -88,6 +89,7 @@ class Boat{
         this.keel_drag_coefficient = boat_stats.keel_drag_coefficient;
         this.keel_edge_area = boat_stats.keel_edge_area;
         // boat dimensions and appearance
+        this.name = name;
         this.beam = boat_stats.beam; // (boat width) in meters
         this.loa = boat_stats.loa; // length overall
         this.boat_points = boat_stats.boat_points;
@@ -345,6 +347,127 @@ class Boat{
     }
 }
 
+class Buoy{
+    constructor(x, y,radius, colour) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.colour = colour;
+    }
+
+    draw_self(context, ppm, origin){
+        /**
+         * draws itself at the correct location
+         * @param context the context being used to draw to canvas
+         * @param ppm the scale of the drawing in pixels per meter
+         * @param origin the in-world x and y coordinate of the point at the top left of the canvas
+         */
+        context.fillStyle = this.colour;
+        context.strokeStyle = this.colour;
+        context.beginPath();
+        context.arc((this.x - origin[0])*ppm, (origin[1] - this.y)*ppm, this.radius*ppm, 0, Math.PI*2);
+        context.fill();
+        context.stroke();
+    }
+
+    check_collisions(objects){
+        let collisions = [];
+        for(let i=0;i<objects.length; i++){
+            let object = objects[i];
+            if(distance([this.x, this.y], [object.x, object.y]) <= object.loa/ 2){
+                collisions.push(object);
+            }
+        }
+        return collisions;
+    }
+}
+
+class Timer{
+    /**
+     * A timer that can be drawn on screen for keeping track of time and displaying it to user
+     * @param start the initial time on the timer in seconds
+     * @param duration the time the timer should last in seconds
+     * @param direction whether the timer should count up or down, 1 for up, -1 for down
+     * @param position{number[]} the x and y position, in pixels of the bottom left corner of the timer reading
+     * @param font the style of the timer text
+     * @param max_width the maximum width of the timer reading in pixels
+     * @param colour the colour of the timer reading
+     * @param warning_threshold the time remaining, in seconds, past which the timer should change colour to indicate limited time
+     * @param warning_colour the colour to which the readout should change past the warning threshold
+     */
+    constructor(start, duration, direction, position, font, max_width, colour, warning_threshold, warning_colour) {
+        this.duration = duration*1000;
+        this.initial_time = start*1000;
+        this.time = start*1000;
+        this.text = `${Math.floor(0.001*this.initial_time/60)}:${(this.initial_time%60000)/1000}:${this.initial_time%1000}`;
+        this.text = this.time_to_text(this.initial_time);
+        this.direction = direction
+        this.position = position;
+        this.font = font;
+        this.max_width = max_width;
+        this.warning_threshold = warning_threshold*1000;
+        this.running=false;
+        this.colour = colour;
+        this.warning_colour = warning_colour;
+    }
+
+    start(){
+        this.running=true;
+        this.start_time = Date.now();
+        this.end_time = this.start_time + this.duration;
+    }
+    stop(){
+        this.running = false;
+        this.duration = this.end_time - Date.now();
+        this.initial_time = this.time;
+    }
+    update(context){
+        if(this.running){
+            if(Date.now() < this.end_time){
+                let time_since_start = Date.now() - this.start_time;
+                this.time = this.initial_time + this.direction*time_since_start;
+                this.text = this.time_to_text(this.time);
+                this.draw(context);
+                return true;
+            }else{
+                this.time = this.initial_time + this.duration*this.direction;
+                this.text = this.time_to_text(this.time);
+                this.draw(context);
+                return false
+            }
+        }
+        this.draw(context);
+        return true;
+    }
+    time_to_text(time){
+        let text = "";
+        if(Math.sign(time) < 0){
+            text += "-"
+        }
+        let minutes = Math.floor(Math.abs(time)/60000).toString().padStart(2, "0");
+        let seconds = Math.floor((Math.abs(time)%60000)/1000).toString().padStart(2, "0");
+        let milliseconds = Math.abs(time%1000).toString().padStart(3, "0");
+        text += `${minutes}:${seconds}:${milliseconds}`;
+
+        return text;
+    }
+    draw(context){
+        context.fillStyle = this.colour;
+        context.font = this.font;
+        let remaining_time = this.end_time - Date.now();
+        if(remaining_time < this.warning_threshold){
+            context.fillStyle = this.warning_colour;
+        }
+        context.fillText(this.text, this.position[0], this.position[1], this.max_width);
+    }
+
+    add_time(seconds){
+        this.duration += seconds*1000;
+        this.end_time += seconds*1000;
+        this.initial_time -= this.direction*seconds*1000;
+    }
+}
+
 
 class Environment{
     /**
@@ -355,11 +478,15 @@ class Environment{
      * @param pixels_per_meter the scale of the displayed environment in pixels per meter
      */
     constructor(wind_direction, wind_speed, canvas, pixels_per_meter){
+        this.game_mode = "sandbox";
+        this.scores = {}
         this.wind_direction = wind_direction;
         this.wind_speed = wind_speed;
         this.canvas = canvas;
         this.boats = [];
         this.captains = [];
+        this.buoys = [];
+        this.timers = [];
         this.previous_time = 0;
         this.delta_time = 0;
         this.animation_toggle = false;
@@ -384,6 +511,9 @@ class Environment{
         for(let n = 0;n<this.captains.length;n++) {
             this.captains[n].wake();
         }
+        for(let n = 0;n<this.timers.length;n++) {
+            this.timers[n].start();
+        }
     }
 
     stop_environment(){
@@ -393,6 +523,10 @@ class Environment{
         for(let n = 0;n<this.captains.length;n++) {
             this.captains[n].sleep();
         }
+        for(let n = 0;n<this.timers.length;n++) {
+            this.timers[n].stop();
+        }
+
     }
 
     toggle(){
@@ -411,10 +545,15 @@ class Environment{
          **/
         boat.wind_getter = this.get_wind.bind(this);
         this.boats.push(boat);
+        this.scores[boat.name] = 0;
     }
 
     add_captain(captain){
         this.captains.push(captain);
+    }
+
+    add_buoy(buoy){
+        this.buoys.push(buoy);
     }
 
     get_wind(){
@@ -422,6 +561,35 @@ class Environment{
          * @returns {Number[2]} wind speed in m s^-1 and wid direction as a bearing in degrees
          */
         return [this.wind_speed, this.wind_direction];
+    }
+
+    start_snake(){
+        if(this.boats.length !== 0){
+            this.game_mode = "snake";
+            this.reset(this.boats);
+            this.buoys = [];
+            this.wind_direction = Math.random()*360;
+            let buoy = new Buoy(Math.random()*this.canvas.width/this.ppm, Math.random()*this.canvas.height/this.ppm, 0.5, "purple");
+            this.add_buoy(buoy);
+            this.snake_timer = new Timer(60, 60, -1, [this.arrow_length*2, 50], "50px Courier New", this.canvas.width/4, "black", 10, "red");
+            this.snake_timer.start();
+            this.timers.push(this.snake_timer);
+        }
+    }
+
+    reset(boats){
+        for(let n = 0;n<boats.length;n++) {
+            let boat = boats[n];
+            this.scores[boat.name] = 0;
+            boat.x = 0.5*this.canvas.width/this.ppm
+            boat.y = 0.5*this.canvas.height/this.ppm
+            boat.dx = 0;
+            boat.dy = 0;
+            boat.dx2 = 0;
+            boat.dy2 = 0;
+            boat.bearing = Math.random()*360;
+
+        }
     }
 
 
@@ -459,13 +627,36 @@ class Environment{
         // get time elapsed since last frame
         this.delta_time = current_time - this.previous_time;
         this.previous_time = current_time;
-
+        //iterate through every boat
+        for(let n = 0;n<this.buoys.length;n++) {
+            let buoy = this.buoys[n];
+            buoy.draw_self(ctx, this.ppm, [0, this.canvas.height/this.ppm]);
+            let collisions = buoy.check_collisions(this.boats);
+            if(this.game_mode === "snake"){
+                if(collisions.length !== 0){
+                    this.buoys[n] = null;
+                    this.add_buoy(new Buoy(Math.random()*this.canvas.width/this.ppm, Math.random()*this.canvas.height/this.ppm, 0.5, "purple"));
+                    this.snake_timer.add_time(30);
+                }
+                for (const obj of collisions) {
+                    if (this.scores.hasOwnProperty(obj.name)) {
+                        this.scores[obj.name] += 1;
+                    }
+                }
+            }
+        }
+        this.buoys = this.buoys.filter(n => n);
 
 
         //iterate through every boat
         for(let n = 0;n<this.boats.length;n++) {
             let boat = this.boats[n];
             boat.update(this.delta_time, this.wind_direction, this.wind_speed);
+            if(this.game_mode === "snake"){
+                if(boat.x < 0 || boat.x > this.canvas.width/this.ppm || boat.y < 0 || boat.y > this.canvas.height/this.ppm){
+                    this.reset([boat]);
+                }
+            }
             boat.x = ((boat.x % (this.canvas.width/this.ppm)) + (this.canvas.width/this.ppm))%(this.canvas.width/this.ppm);
             boat.y = ((boat.y % (this.canvas.height/this.ppm)) + (this.canvas.height/this.ppm))%(this.canvas.height/this.ppm);
 
@@ -567,6 +758,12 @@ class Environment{
 
             ctx.fillText(stats, 0, this.canvas.height - 25);
 
+            // draw score
+            if(this.game_mode === "snake"){
+                ctx.font = "50px Courier New";
+                ctx.fillText(`${boat.name}: ${this.scores[boat.name]}`, 2*this.arrow_length,  100 + n*50);
+            }
+
             // debug text
             ctx.font = "10px Courier New";
             let text = boat.debug_text.split("\n");
@@ -600,10 +797,19 @@ class Environment{
         ctx.stroke();
 
         // draw speed readout
-        ctx.font = "50px Courier New";
-        ctx.fillText(`${this.wind_speed}m/s`, 0.2*this.arrow_length, 2.3*this.arrow_length);
+        ctx.font = "40px Courier New";
+        ctx.fillText(`${this.wind_speed}m/s`, 0.2*this.arrow_length, 2.3*this.arrow_length, this.arrow_length*1.6);
 
-
+        if(this.game_mode === "snake"){
+            if(this.snake_timer.update(ctx) === false){
+                ctx.font = "100px Courier New";
+                ctx.fillStyle = "red";
+                ctx.fillText("YOU LOSE! (Press Space to try again)", 0, this.canvas.height/2, this.canvas.width);
+                this.stop_environment();
+                this.reset(this.boats);
+                this.start_snake();
+            }
+        }
 
         // continue animating unless told otherwise
         if(this.animation_toggle){
