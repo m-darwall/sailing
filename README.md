@@ -15,10 +15,10 @@ It is very much a work in progress.
 - sail increases drag when too close to wind and flags to indicate this
 - main sheet shown to make boat state clearer
 - goals appear which award points when user navigates to them (Snake but with a boat)
+- objects draw themselves
 
 ## Intended Features
 - apparent wind indicator
-- objects draw themselves
 - mobile compatibility
 - visual improvements to boat and water
 - infinite sailing mode (view moves rather than boat)
