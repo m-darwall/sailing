@@ -341,6 +341,98 @@ class Boat{
         return moment_from_x + moment_from_y;
     }
 
+    draw_self(ctx, ppm, origin){
+        // points on the boat when pointing in default direction
+        let points = structuredClone(this.boat_points);
+
+        // rotate sail
+        let clew = points.clew;
+        let mast = points.mast;
+        // recenter clew so origin is equivalent to mast location
+        clew = [clew[0]-mast[0], clew[1]-mast[1]];
+        // rotate sail
+        clew = rotate(clew, this.sail_angle);
+        // revert to correct centering
+        clew = [clew[0]+mast[0], clew[1]+mast[1]];
+
+        points.clew = clew;
+
+        // rotate tiller and rudder
+        let tiller = points.tiller_tip;
+        let rudder = points.rudder_tip;
+        let stern = points.stern;
+        // recenter around stern
+        tiller = [tiller[0]-stern[0], tiller[1]-stern[1]];
+        rudder = [rudder[0]-stern[0], rudder[1]-stern[1]];
+        // rotate tiller
+        tiller = rotate(tiller, this.rudder_angle);
+        // rotate rudder
+        rudder = rotate(rudder, this.rudder_angle);
+        // revert centering
+        tiller = [tiller[0]+stern[0], tiller[1]+stern[1]];
+        rudder = [rudder[0]+stern[0], rudder[1]+stern[1]];
+
+        points.tiller_tip = tiller;
+        points.rudder_tip = rudder;
+        // rotate whole boat to bearing and move to correct position
+        for(let key of Object.keys(points)){
+            let point = points[key];
+            //rotate the given point to align with bearing
+            point = rotate(point, this.bearing);
+
+            // add position coordinates to move boat to correct position
+            let point_in_space = [point[0] + this.x, point[1]+this.y];
+
+            // convert to canvas location
+            points[key] = [(point_in_space[0] - origin[0])*ppm, (origin[1] - point_in_space[1])*ppm];
+        }
+        // set boat colour
+        ctx.strokeStyle = this.gunwale_colour;
+        ctx.fillStyle = this.boat_colour;
+        // draw the boat
+        ctx.beginPath();
+        ctx.moveTo(points.bow[0], points.bow[1]);
+        ctx.quadraticCurveTo(points.port_max[0], points.port_max[1], points.port_stern[0], points.port_stern[1]);
+        ctx.lineTo(points.starboard_stern[0], points.starboard_stern[1]);
+        ctx.quadraticCurveTo(points.starboard_max[0], points.starboard_max[1], points.bow[0], points.bow[1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // set tiller colour
+        ctx.strokeStyle = this.tiller_colour;
+        ctx.fillStyle = this.tiller_colour;
+        ctx.beginPath();
+        ctx.moveTo(points.tiller_tip[0], points.tiller_tip[1]);
+        ctx.lineTo(points.rudder_tip[0], points.rudder_tip[1]);
+        ctx.closePath();
+        ctx.stroke();
+        // set sail colour
+        ctx.strokeStyle = this.sail_colour;
+        ctx.fillStyle = this.sail_colour;
+        ctx.moveTo(points.mast[0], points.mast[1]);
+        if(this.flapping){
+            let random_point = random_point_near_line(points.mast, points.clew, 3);
+            let random_point1 = random_point_near_line(points.mast, points.clew, 3);
+            ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
+        }else{
+            ctx.lineTo(points.clew[0], points.clew[1]);
+        }
+        ctx.stroke();
+        // draw main sheet
+        ctx.strokeStyle = this.sheet_colour;
+        ctx.beginPath();
+        ctx.moveTo(points.main_sheet_block[0], points.main_sheet_block[1]);
+        let slack = this.main_sheet_length - distance(points.clew, points.main_sheet_block)/ppm;
+        if(slack < 0.1){
+            ctx.lineTo(points.clew[0], points.clew[1]);
+        } else {
+            let random_point = random_point_near_line(points.main_sheet_block, points.clew, slack);
+            let random_point1 = random_point_near_line(points.main_sheet_block, points.clew, slack);
+            ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
+        }
+        ctx.stroke();
+    }
+
     clear_debug(){
         // resets debug text
         this.debug_text = "";
@@ -673,95 +765,8 @@ class Environment{
             boat.x = ((boat.x % (this.canvas.width/this.ppm)) + (this.canvas.width/this.ppm))%(this.canvas.width/this.ppm);
             boat.y = ((boat.y % (this.canvas.height/this.ppm)) + (this.canvas.height/this.ppm))%(this.canvas.height/this.ppm);
 
-            // points on the boat when pointing in default direction
-            let points = structuredClone(boat.boat_points);
+            boat.draw_self(ctx, this.ppm, [0, this.canvas.height/this.ppm]);
 
-            // rotate sail
-            let clew = points.clew;
-            let mast = points.mast;
-            // recenter clew so origin is equivalent to mast location
-            clew = [clew[0]-mast[0], clew[1]-mast[1]];
-            // rotate sail
-            clew = rotate(clew, boat.sail_angle);
-            // revert to correct centering
-            clew = [clew[0]+mast[0], clew[1]+mast[1]];
-
-            points.clew = clew;
-
-            // rotate tiller and rudder
-            let tiller = points.tiller_tip;
-            let rudder = points.rudder_tip;
-            let stern = points.stern;
-            // recenter around stern
-            tiller = [tiller[0]-stern[0], tiller[1]-stern[1]];
-            rudder = [rudder[0]-stern[0], rudder[1]-stern[1]];
-            // rotate tiller
-            tiller = rotate(tiller, boat.rudder_angle);
-            // rotate rudder
-            rudder = rotate(rudder, boat.rudder_angle);
-            // revert centering
-            tiller = [tiller[0]+stern[0], tiller[1]+stern[1]];
-            rudder = [rudder[0]+stern[0], rudder[1]+stern[1]];
-
-            points.tiller_tip = tiller;
-            points.rudder_tip = rudder;
-            // rotate whole boat to bearing and move to correct position
-            for(let key of Object.keys(points)){
-                let point = points[key];
-                //rotate the given point to align with bearing
-                point = rotate(point, boat.bearing);
-
-                // add position coordinates to move boat to correct position
-                let point_in_space = [point[0] + boat.x, point[1]+boat.y];
-
-                // convert to canvas location
-                points[key] = [point_in_space[0]*this.ppm, (this.canvas.height/this.ppm - point_in_space[1])*this.ppm];
-            }
-            // set boat colour
-            ctx.strokeStyle = boat.gunwale_colour;
-            ctx.fillStyle = boat.boat_colour;
-            // draw the boat
-            ctx.beginPath();
-            ctx.moveTo(points.bow[0], points.bow[1]);
-            ctx.quadraticCurveTo(points.port_max[0], points.port_max[1], points.port_stern[0], points.port_stern[1]);
-            ctx.lineTo(points.starboard_stern[0], points.starboard_stern[1]);
-            ctx.quadraticCurveTo(points.starboard_max[0], points.starboard_max[1], points.bow[0], points.bow[1]);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            // set tiller colour
-            ctx.strokeStyle = boat.tiller_colour;
-            ctx.fillStyle = boat.tiller_colour;
-            ctx.beginPath();
-            ctx.moveTo(points.tiller_tip[0], points.tiller_tip[1]);
-            ctx.lineTo(points.rudder_tip[0], points.rudder_tip[1]);
-            ctx.closePath();
-            ctx.stroke();
-            // set sail colour
-            ctx.strokeStyle = boat.sail_colour;
-            ctx.fillStyle = boat.sail_colour;
-            ctx.moveTo(points.mast[0], points.mast[1]);
-            if(boat.flapping){
-                let random_point = random_point_near_line(points.mast, points.clew, 3);
-                let random_point1 = random_point_near_line(points.mast, points.clew, 3);
-                ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
-            }else{
-                ctx.lineTo(points.clew[0], points.clew[1]);
-            }
-            ctx.stroke();
-            // draw main sheet
-            ctx.strokeStyle = boat.sheet_colour;
-            ctx.beginPath();
-            ctx.moveTo(points.main_sheet_block[0], points.main_sheet_block[1]);
-            let slack = boat.main_sheet_length - distance(points.clew, points.main_sheet_block)/this.ppm;
-            if(slack < 0.1){
-                ctx.lineTo(points.clew[0], points.clew[1]);
-            } else {
-                let random_point = random_point_near_line(points.main_sheet_block, points.clew, slack);
-                let random_point1 = random_point_near_line(points.main_sheet_block, points.clew, slack);
-                ctx.bezierCurveTo(...random_point,...random_point1, points.clew[0], points.clew[1]);
-            }
-            ctx.stroke();
             // boat stats
             ctx.fillStyle = "#000000";
             ctx.font = "25px Courier New";
