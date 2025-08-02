@@ -351,21 +351,34 @@ class Buoy{
     constructor(x, y,radius, colour) {
         this.x = x;
         this.y = y;
+        this.bobbing_amplitude = radius/3;
+        this.bobbing_origin = -this.bobbing_amplitude;
+        // bobs per second
+        this.bobbing_frequency = 1/2;
+        this.bobbing_time = 0;
         this.radius = radius;
         this.colour = colour;
     }
 
-    draw_self(context, ppm, origin){
+    draw_self(context, ppm, origin, delta_time){
         /**
          * draws itself at the correct location
          * @param context the context being used to draw to canvas
          * @param ppm the scale of the drawing in pixels per meter
          * @param origin the in-world x and y coordinate of the point at the top left of the canvas
          */
+        // calculate bob depth
+        // bobbing is sinusoidal
+        this.bobbing_time += delta_time/1000;
+        let depth = this.bobbing_origin + this.bobbing_amplitude*Math.sin(this.bobbing_time*2*Math.PI*this.bobbing_frequency);
+        let visible_radius = Math.sqrt(Math.pow(this.radius, 2) - Math.pow(depth, 2));
+        if(depth >= 0){
+            visible_radius = this.radius;
+        }
         context.fillStyle = this.colour;
         context.strokeStyle = this.colour;
         context.beginPath();
-        context.arc((this.x - origin[0])*ppm, (origin[1] - this.y)*ppm, this.radius*ppm, 0, Math.PI*2);
+        context.arc((this.x - origin[0])*ppm, (origin[1] - this.y)*ppm, visible_radius*ppm, 0, Math.PI*2);
         context.fill();
         context.stroke();
     }
@@ -630,7 +643,7 @@ class Environment{
         //iterate through every boat
         for(let n = 0;n<this.buoys.length;n++) {
             let buoy = this.buoys[n];
-            buoy.draw_self(ctx, this.ppm, [0, this.canvas.height/this.ppm]);
+            buoy.draw_self(ctx, this.ppm, [0, this.canvas.height/this.ppm], this.delta_time);
             let collisions = buoy.check_collisions(this.boats);
             if(this.game_mode === "snake"){
                 if(collisions.length !== 0){
